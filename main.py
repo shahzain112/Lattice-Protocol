@@ -13,6 +13,17 @@ from security.crypto import LatticeVault
 from core.messages import parse_secure_request, LatticeResponse, LatticeRequest
 from data_engine.pipeline import DataEngineCore
 
+
+# -------------------- LATTICE ECOSYSTEM IMPORTS --------------------
+# Yeh MCP se bilkul alag hai - Agent Mesh Protocol
+from core.identity import AgentIdentity, AgentCapability
+from core.registry import AgentRegistry, RegistryEntry
+from core.trust import TrustEngine, TrustEvent
+
+# Global ecosystem instances (in-memory for v2.0)
+_lattice_registry = AgentRegistry()
+_lattice_trust = TrustEngine()
+
 # -------------------- SECURITY SETUP --------------------
 # Audit Log: Har request ka record rakhta hai
 logging.basicConfig(
@@ -62,6 +73,74 @@ def _check_rate_limit(client_id: str) -> bool:
 
     _request_counts[client_id].append(current_time)
     return True
+
+
+# -------------------- LATTICE ECOSYSTEM FUNCTIONS --------------------
+
+def register_agent(capabilities: list, stake: float = 0.0) -> dict:
+    """
+    Register a new agent in the Lattice ecosystem.
+    MCP mein yeh feature NAHI hai!
+    """
+    agent = AgentIdentity()
+    for cap in capabilities:
+        agent.add_capability(AgentCapability(**cap))
+
+    agent.stake_amount = stake
+    agent.update_trust(stake / 10)
+
+    entry = RegistryEntry(
+        identity=agent,
+        endpoints=["ws://localhost:8080"],
+        network_tier="premium" if stake > 1000 else "standard"
+    )
+
+    _lattice_registry.register(entry)
+    _lattice_trust.update_stake(agent.agent_id, stake)
+
+    return {
+        "agent_id": agent.agent_id,
+        "public_key": agent.public_key.hex()[:32] + "...",
+        "trust_score": agent.trust_score,
+        "stake_amount": agent.stake_amount,
+        "capabilities": [c.name for c in agent.capabilities],
+        "status": "registered"
+    }
+
+def discover_agents(capability: str, min_trust: float = 50.0) -> list:
+    """
+    Discover agents by capability.
+    MCP mein yeh NAHI hai!
+    """
+    agents = _lattice_registry.discover(
+        capability=capability,
+        min_trust=min_trust
+    )
+    return [
+        {
+            "agent_id": e.identity.agent_id,
+            "trust_score": e.identity.trust_score,
+            "stake": e.identity.stake_amount,
+            "tier": e.network_tier,
+            "fee": next((c.fee for c in e.identity.capabilities if c.name == capability), 0)
+        }
+        for e in agents
+    ]
+
+def get_agent_trust(agent_id: str) -> dict:
+    """
+    Get trust report for an agent.
+    MCP mein yeh NAHI hai!
+    """
+    return _lattice_trust.get_trust_report(agent_id)
+
+def get_ecosystem_stats() -> dict:
+    """Get ecosystem statistics."""
+    return {
+        "registry": _lattice_registry.get_stats(),
+        "total_agents": len(_lattice_registry.get_all_agents()),
+        "avg_trust": _lattice_registry.get_stats()["avg_trust"]
+    }
 
 # -------------------- MAIN REQUEST HANDLER --------------------
 def handle_request(raw_input: bytes, client_id: Optional[str] = None) -> str:
@@ -440,6 +519,92 @@ def handle_request(raw_input: bytes, client_id: Optional[str] = None) -> str:
                 error=f"Multi-chain error: {str(e)}"
             )
 
+
+    # ==================== LATTICE ECOSYSTEM ACTIONS ====================
+    # Yeh actions MCP se bilkul alag hain - Agent Mesh Protocol
+
+    elif req.action == "register_agent":
+        try:
+            capabilities = req.payload.get("capabilities", [])
+            stake = req.payload.get("stake", 0.0)
+
+            if not isinstance(capabilities, list):
+                raise ValueError("capabilities must be a list")
+
+            result = register_agent(capabilities, stake)
+            response = LatticeResponse(
+                request_id=req.request_id,
+                status="success",
+                data=result
+            )
+        except Exception as e:
+            response = LatticeResponse(
+                request_id=req.request_id,
+                status="error",
+                error=f"Agent registration error: {str(e)}"
+            )
+
+    elif req.action == "discover_agents":
+        try:
+            capability = req.payload.get("capability", "")
+            min_trust = req.payload.get("min_trust", 50.0)
+
+            if not capability or not isinstance(capability, str):
+                raise ValueError("capability string required")
+
+            results = discover_agents(capability, min_trust)
+            response = LatticeResponse(
+                request_id=req.request_id,
+                status="success",
+                data={
+                    "capability": capability,
+                    "agents_found": len(results),
+                    "agents": results
+                }
+            )
+        except Exception as e:
+            response = LatticeResponse(
+                request_id=req.request_id,
+                status="error",
+                error=f"Discovery error: {str(e)}"
+            )
+
+    elif req.action == "get_agent_trust":
+        try:
+            agent_id = req.payload.get("agent_id", "")
+            if not agent_id or not isinstance(agent_id, str):
+                raise ValueError("agent_id string required")
+
+            report = get_agent_trust(agent_id)
+            response = LatticeResponse(
+                request_id=req.request_id,
+                status="success",
+                data=report
+            )
+        except Exception as e:
+            response = LatticeResponse(
+                request_id=req.request_id,
+                status="error",
+                error=f"Trust report error: {str(e)}"
+            )
+
+    elif req.action == "get_ecosystem_stats":
+        try:
+            stats = get_ecosystem_stats()
+            response = LatticeResponse(
+                request_id=req.request_id,
+                status="success",
+                data=stats
+            )
+        except Exception as e:
+            response = LatticeResponse(
+                request_id=req.request_id,
+                status="error",
+                error=f"Stats error: {str(e)}"
+            )
+
+    # ==================== END ECOSYSTEM ACTIONS ====================
+
     else:
         response = LatticeResponse(
             request_id=req.request_id,
@@ -454,12 +619,15 @@ def handle_request(raw_input: bytes, client_id: Optional[str] = None) -> str:
     else:
         return json.dumps({"status": "error", "error": "Internal server error"})
 
+
 # -------------------- TEST RUN (LOCAL) --------------------
 if __name__ == "__main__":
-    print("🚀 Lattice Secure Core v2.0 Loaded Successfully!")
+    print("🚀 Lattice Secure Core v2.0 + Ecosystem Loaded!")
     print("⚡ Features: Health, Balance, MultiSig, Gaming, Migration, Extensions, Swarm, VectorDB, MultiChain.")
+    print("🌐 Ecosystem: Agent Identity, Trust Scoring, Registry, Discovery")
     print(f"🔒 Rate Limit: {RATE_LIMIT} requests/minute per client")
 
+    # Test 1: Health Check
     test_payload = {
         "request_id": "test_1234567890",
         "action": "health_check",
@@ -467,5 +635,31 @@ if __name__ == "__main__":
         "timestamp": int(time.time())
     }
     response = handle_request(json.dumps(test_payload).encode())
-    print(f"✅ Self-Test Response: {response}")
+    print(f"✅ Health Check: {response}")
+
+    # Test 2: Register Agent (Ecosystem)
+    test_agent = {
+        "request_id": "test_agent_001",
+        "action": "register_agent",
+        "payload": {
+            "capabilities": [
+                {"name": "eth_balance", "description": "Get ETH balance", "input_schema": {"address": "string"}, "output_schema": {"balance": "float"}, "fee": 0.5}
+            ],
+            "stake": 1500
+        },
+        "timestamp": int(time.time())
+    }
+    response = handle_request(json.dumps(test_agent).encode())
+    print(f"✅ Agent Registration: {response}")
+
+    # Test 3: Discover Agents
+    test_discover = {
+        "request_id": "test_disc_001",
+        "action": "discover_agents",
+        "payload": {"capability": "eth_balance", "min_trust": 0},
+        "timestamp": int(time.time())
+    }
+    response = handle_request(json.dumps(test_discover).encode())
+    print(f"✅ Agent Discovery: {response}")
+
     print("\n💡 To start the HTTP server, run: python server.py")

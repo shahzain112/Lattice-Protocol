@@ -1,27 +1,69 @@
-import threading
-import queue
-import time
+"""
+Lattice Agent Swarm
+Multi-agent coordination and task execution.
+"""
+
+from typing import Dict, Any, List
+from collections import deque
+
 
 class AgentSwarm:
+    """
+    Swarm intelligence for multi-agent coordination.
+
+    Features:
+    - Task distribution
+    - Agent coordination
+    - Result aggregation
+    """
+
     def __init__(self):
-        self.task_queue = queue.Queue()
-        self.results = []
-    
-    def add_task(self, task_name: str, data: dict):
-        self.task_queue.put((task_name, data))
-    
-    def run_swarm(self, num_workers=5):
-        def worker():
-            while not self.task_queue.empty():
-                task, data = self.task_queue.get()
-                # Simulate AI work (Replace with actual LLM calls later)
-                result = f"Processed {task} with data: {data}"
-                self.results.append(result)
-                time.sleep(0.1)  # Simulate processing time
-                self.task_queue.task_done()
-        
-        threads = [threading.Thread(target=worker) for _ in range(num_workers)]
-        for t in threads: t.start()
-        for t in threads: t.join()
-        
-        return self.results
+        self.tasks: deque = deque()
+        self.results: List[Dict] = []
+
+    def add_task(self, name: str, data: Dict[str, Any] = None):
+        """
+        Add a task to the swarm.
+
+        Args:
+            name: Task name
+            data: Task data
+        """
+        self.tasks.append({
+            "name": name,
+            "data": data or {},
+            "status": "pending"
+        })
+
+    def run_swarm(self) -> List[Dict[str, Any]]:
+        """
+        Execute all tasks in the swarm.
+
+        Returns:
+            List of task results
+        """
+        results = []
+
+        while self.tasks:
+            task = self.tasks.popleft()
+
+            # In production, this would distribute to actual agents
+            # For now, mock execution
+            result = {
+                "task": task["name"],
+                "status": "completed",
+                "result": f"Processed: {task['data']}",
+                "agent_id": f"agent_{len(results) + 1}"
+            }
+            results.append(result)
+            self.results.append(result)
+
+        return results
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get swarm statistics."""
+        return {
+            "pending_tasks": len(self.tasks),
+            "completed_tasks": len(self.results),
+            "total_tasks": len(self.tasks) + len(self.results)
+        }

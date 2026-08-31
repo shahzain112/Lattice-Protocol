@@ -27,6 +27,47 @@
 | 🧠 Vector DB        | ❌       | **pgvector Support**         |
 | ⚡ Stateless        | ❌       | **✅ Built-in**              |
 
+
+
+## 🔷 Lattice Ecosystem (Differnt From MCP)
+
+| Feature        | MCP       | **Lattice**                  |
+| -------------- | --------- | ---------------------------------- |
+| Agent Identity | ❌ None   | **✅ Ed25519 Cryptographic** |
+| Trust Scoring  | ❌ None   | **✅ Decentralized (0-100)** |
+| Agent Registry | ❌ None   | **✅ Global Directory**      |
+| Discovery      | ❌ Static | **✅ Dynamic Gossip**        |
+| Economic Model | ❌ None   | **✅ Stake + Fees**          |
+
+### 🆕 Ecosystem Actions
+
+```bash
+# Registering Agent
+curl -X POST http://localhost:8080/lattice/v1/execute \
+  -H "Content-Type: application/json" \
+  -d '{
+    "request_id": "reg_001",
+    "action": "register_agent",
+    "payload": {
+      "capabilities": [{"name": "eth_balance", "fee": 0.5}],
+      "stake": 1000
+    },
+    "timestamp": '$(date +%s)'
+  }'
+
+# Discovering Agent
+curl -X POST http://localhost:8080/lattice/v1/execute \
+  -H "Content-Type: application/json" \
+  -d '{
+    "request_id": "disc_001",
+    "action": "discover_agents",
+    "payload": {"capability": "eth_balance"},
+    "timestamp": '$(date +%s)'
+  }'
+```
+
+
+
 ## 📦 Installation
 
 ```bash

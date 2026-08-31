@@ -1,35 +1,53 @@
-import hashlib
-import hmac
-import json
-from cryptography.hazmat.primitives import hashes, serialization
+"""
+Lattice Cryptographic Vault
+Handles key generation, signing, and encryption.
+"""
+
+from typing import Tuple
 from cryptography.hazmat.primitives.asymmetric import ed25519
-from cryptography.fernet import Fernet
-import base64
+from cryptography.hazmat.primitives import serialization
+
 
 class LatticeVault:
+    """
+    Cryptographic vault for Lattice protocol.
+
+    Provides:
+    - Ed25519 key pair generation
+    - Message signing and verification
+    - Key serialization
+    """
+
     @staticmethod
-    def generate_keys():
+    def generate_keys() -> Tuple[ed25519.Ed25519PrivateKey, ed25519.Ed25519PublicKey]:
+        """Generate a new Ed25519 key pair."""
         private_key = ed25519.Ed25519PrivateKey.generate()
         public_key = private_key.public_key()
         return private_key, public_key
 
     @staticmethod
-    def sign_request(private_key: ed25519.Ed25519PrivateKey, payload: dict) -> str:
-        sorted_payload = json.dumps(payload, sort_keys=True)
-        signature = private_key.sign(sorted_payload.encode())
-        return base64.b64encode(signature).decode()
+    def sign_message(private_key: ed25519.Ed25519PrivateKey, message: bytes) -> bytes:
+        """Sign a message with private key."""
+        return private_key.sign(message)
 
     @staticmethod
-    def verify_signature(public_key: ed25519.Ed25519PublicKey, payload: dict, signature_b64: str) -> bool:
+    def verify_signature(public_key: ed25519.Ed25519PublicKey, message: bytes, signature: bytes) -> bool:
+        """Verify a signature with public key."""
         try:
-            sorted_payload = json.dumps(payload, sort_keys=True)
-            signature = base64.b64decode(signature_b64)
-            public_key.verify(signature, sorted_payload.encode())
+            public_key.verify(signature, message)
             return True
         except Exception:
             return False
 
     @staticmethod
-    def seal_file(data: str, secret_key: bytes) -> str:
-        f = Fernet(base64.urlsafe_b64encode(secret_key.ljust(32, b'\0')))
-        return f.encrypt(data.encode()).decode()
+    def serialize_private_key(private_key: ed25519.Ed25519PrivateKey) -> bytes:
+        """Serialize private key to bytes."""
+        return private_key.private_bytes_raw()
+
+    @staticmethod
+    def serialize_public_key(public_key: ed25519.Ed25519PublicKey) -> bytes:
+        """Serialize public key to bytes."""
+        return public_key.public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw
+        )

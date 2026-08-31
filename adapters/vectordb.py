@@ -1,27 +1,65 @@
-import threading
-import queue
-import time
+"""
+Lattice Vector Database Adapter
+pgvector integration for embeddings.
+"""
 
-class AgentSwarm:
-    def __init__(self):
-        self.task_queue = queue.Queue()
-        self.results = []
-    
-    def add_task(self, task_name: str, data: dict):
-        self.task_queue.put((task_name, data))
-    
-    def run_swarm(self, num_workers=5):
-        def worker():
-            while not self.task_queue.empty():
-                task, data = self.task_queue.get()
-                # Simulate AI work (Replace with actual LLM calls later)
-                result = f"Processed {task} with data: {data}"
-                self.results.append(result)
-                time.sleep(0.1)  # Simulate processing time
-                self.task_queue.task_done()
-        
-        threads = [threading.Thread(target=worker) for _ in range(num_workers)]
-        for t in threads: t.start()
-        for t in threads: t.join()
-        
-        return self.results
+from typing import Dict, Any, List
+
+
+class VectorStore:
+    """
+    Vector database store for embeddings.
+
+    Supports:
+    - Embedding storage
+    - Similarity search
+    - Metadata filtering
+    """
+
+    def __init__(self, db_uri: str):
+        """
+        Initialize vector store.
+
+        Args:
+            db_uri: PostgreSQL URI with pgvector
+        """
+        self.db_uri = db_uri
+        self._embeddings: List[Dict] = []
+
+    def store_embedding(self, table: str, embedding: List[float], 
+                        metadata: Dict[str, Any] = None) -> Dict[str, Any]:
+        """
+        Store an embedding vector.
+
+        Args:
+            table: Table name
+            embedding: Vector embedding
+            metadata: Additional metadata
+
+        Returns:
+            Storage results
+        """
+        try:
+            # In production, this would insert into PostgreSQL/pgvector
+            self._embeddings.append({
+                "table": table,
+                "embedding": embedding,
+                "metadata": metadata or {}
+            })
+            return {
+                "status": "success",
+                "table": table,
+                "dimensions": len(embedding),
+                "stored": True
+            }
+        except Exception as e:
+            return {
+                "status": "error",
+                "error": str(e)
+            }
+
+    def search_similar(self, query_embedding: List[float], 
+                       top_k: int = 5) -> List[Dict]:
+        """Search for similar embeddings."""
+        # Mock implementation
+        return self._embeddings[:top_k]
