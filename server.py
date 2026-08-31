@@ -4,6 +4,7 @@ import asyncio
 from typing import Dict
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from main import handle_request
 import uvicorn
 
@@ -50,18 +51,25 @@ async def execute(request: Request):
         response_json = handle_request(raw_body, client_id=client_ip)
         response_data = json.loads(response_json)
 
+        # Always return JSONResponse with proper status code
+        # but preserve the original Lattice response format
         if response_data.get("status") == "error":
             error_msg = response_data.get("error", "")
             if "expired" in error_msg.lower():
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=error_msg)
+                http_code = status.HTTP_401_UNAUTHORIZED
             elif "rate limit" in error_msg.lower():
-                raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=error_msg)
+                http_code = status.HTTP_429_TOO_MANY_REQUESTS
             elif "not available" in error_msg.lower():
-                raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=error_msg)
+                http_code = status.HTTP_503_SERVICE_UNAVAILABLE
+            elif "unknown" in error_msg.lower():
+                http_code = status.HTTP_400_BAD_REQUEST
             else:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
+                http_code = status.HTTP_400_BAD_REQUEST
+            
+            # Return the ORIGINAL Lattice response format
+            return JSONResponse(status_code=http_code, content=response_data)
 
-        return response_data
+        return JSONResponse(status_code=status.HTTP_200_OK, content=response_data)
 
     except HTTPException:
         raise
@@ -86,7 +94,6 @@ async def health():
         "active_ws_connections": len(_active_connections)
     }
 
-# ✅ FIXED: 'status' → 'get_server_status' (taake fastapi.status override na ho)
 @app.get("/lattice/v1/status")
 async def get_server_status():
     """Detailed status endpoint."""
@@ -230,9 +237,9 @@ async def websocket_endpoint(websocket: WebSocket):
                 }))
 
     except WebSocketDisconnect:
-        print(f"🔌 WebSocket disconnected: {client_id}")
+        print(f"WebSocket disconnected: {client_id}")
     except Exception as e:
-        print(f"❌ WebSocket error for {client_id}: {e}")
+        print(f"WebSocket error for {client_id}: {e}")
         try:
             await websocket.send_text(json.dumps({
                 "type": "error",
@@ -272,9 +279,9 @@ async def secure_endpoint(request: Request):
     }
 
 if __name__ == "__main__":
-    print("🌐 Lattice HTTP + WebSocket Server v2.0")
-    print("🔗 HTTP:    http://localhost:8080/lattice/v1/execute")
-    print("⚡ WebSocket: ws://localhost:8080/lattice/v1/ws")
-    print("🛡️  Security: CORS, Rate limiting, WS validation")
+    print("Lattice HTTP + WebSocket Server v2.0")
+    print("HTTP:    http://localhost:8080/lattice/v1/execute")
+    print("WebSocket: ws://localhost:8080/lattice/v1/ws")
+    print("Security: CORS, Rate limiting, WS validation")
 
     uvicorn.run(app, host="127.0.0.1", port=8080, log_level="info")

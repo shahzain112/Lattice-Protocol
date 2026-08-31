@@ -157,6 +157,7 @@ def handle_request(raw_input: bytes, client_id: Optional[str] = None) -> str:
     # Rate limiting check
     if client_id and not _check_rate_limit(client_id):
         return json.dumps({
+            "request_id": client_id or "unknown",
             "status": "error", 
             "error": "Rate limit exceeded. Max 100 requests/minute."
         })
@@ -165,9 +166,9 @@ def handle_request(raw_input: bytes, client_id: Optional[str] = None) -> str:
     try:
         req: LatticeRequest = parse_secure_request(raw_input)
     except ValueError as e:
-        return json.dumps({"status": "error", "error": str(e)})
+        return json.dumps({"request_id": "unknown", "status": "error", "error": str(e)})
     except json.JSONDecodeError:
-        return json.dumps({"status": "error", "error": "Invalid JSON format"})
+        return json.dumps({"request_id": "unknown", "status": "error", "error": "Invalid JSON format"})
 
     # 2. Anti-Replay Protection: 60 second se purani request reject
     try:
@@ -175,15 +176,15 @@ def handle_request(raw_input: bytes, client_id: Optional[str] = None) -> str:
         req_timestamp = int(req.timestamp) if req.timestamp is not None else 0
 
         if not isinstance(req_timestamp, int) or req_timestamp <= 0:
-            return json.dumps({"status": "error", "error": "Invalid timestamp"})
+            return json.dumps({"request_id": req.request_id, "status": "error", "error": "Invalid timestamp"})
 
         if current_time - req_timestamp > 60:
-            return json.dumps({"status": "error", "error": "Request expired"})
+            return json.dumps({"request_id": req.request_id, "status": "error", "error": "Request expired"})
 
         if req_timestamp > current_time + 10:
-            return json.dumps({"status": "error", "error": "Future timestamp not allowed"})
+            return json.dumps({"request_id": req.request_id, "status": "error", "error": "Future timestamp not allowed"})
     except (TypeError, ValueError):
-        return json.dumps({"status": "error", "error": "Timestamp parsing failed"})
+        return json.dumps({"request_id": req.request_id, "status": "error", "error": "Timestamp parsing failed"})
 
     # 3. Action Router
     response: Optional[LatticeResponse] = None
@@ -617,7 +618,7 @@ def handle_request(raw_input: bytes, client_id: Optional[str] = None) -> str:
         logging.info(f"ReqID: {req.request_id} | Action: {req.action} | Status: {response.status}")
         return response.model_dump_json()
     else:
-        return json.dumps({"status": "error", "error": "Internal server error"})
+        return json.dumps({"request_id": req.request_id ,"status": "error", "error": "Internal server error"})
 
 
 # -------------------- TEST RUN (LOCAL) --------------------

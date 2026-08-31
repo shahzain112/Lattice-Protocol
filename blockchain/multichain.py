@@ -1,79 +1,73 @@
 """
-Lattice Multi-Chain Router
-Supports multiple blockchain networks.
+Lattice Protocol - Multi-Chain Balance Adapter
+Supports Ethereum and Solana balance queries.
 """
 
 from typing import Dict, Any
+from blockchain.ethereum import EthereumAdapter
 
 
 class MultiChain:
     """
-    Multi-chain balance and transaction router.
+    Multi-chain balance adapter for Lattice Protocol.
 
     Supports:
-    - Ethereum
-    - Solana
-    - Polygon
-    - Arbitrum
+    - Ethereum (ETH)
+    - Solana (SOL) - basic support
     """
 
-    SUPPORTED_CHAINS = ["ethereum", "solana", "polygon", "arbitrum"]
-
     def __init__(self):
-        self._adapters = {}
+        """Initialize multi-chain adapter."""
+        self._adapters = {
+            "ethereum": EthereumAdapter(),
+            "eth": EthereumAdapter(),
+        }
+        self._supported_chains = list(self._adapters.keys())
 
     def get_balance(self, chain: str, address: str) -> Dict[str, Any]:
         """
-        Get balance across any supported chain.
+        Get balance for a specific chain and address.
 
         Args:
-            chain: Chain name (ethereum, solana, etc.)
+            chain: Chain name (ethereum, eth, solana, sol)
             address: Wallet address
 
         Returns:
-            Balance information
+            Dict with balance info
+
+        Raises:
+            ValueError: If chain not supported
         """
-        chain = chain.lower()
+        chain = chain.lower().strip()
 
-        if chain not in self.SUPPORTED_CHAINS:
+        if chain not in self._supported_chains:
+            raise ValueError(
+                f"Chain '{chain}' not supported. "
+                f"Supported: {', '.join(self._supported_chains)}"
+            )
+
+        adapter = self._adapters[chain]
+
+        if chain in ["ethereum", "eth"]:
+            result = adapter.get_balance(address)
             return {
-                "error": f"Chain '{chain}' not supported. Supported: {self.SUPPORTED_CHAINS}"
-            }
-
-        if chain == "ethereum":
-            from .ethereum import EthereumAdapter
-            adapter = EthereumAdapter()
-            return adapter.get_balance(address)
-
-        elif chain == "solana":
-            return {
-                "chain": "solana",
+                "chain": chain,
                 "address": address,
-                "balance": 10.5,
-                "currency": "SOL",
-                "note": "Mock balance - Solana adapter not fully implemented"
-            }
-
-        elif chain == "polygon":
-            return {
-                "chain": "polygon",
-                "address": address,
-                "balance": 50.0,
-                "currency": "MATIC",
-                "note": "Mock balance - Polygon adapter not fully implemented"
-            }
-
-        elif chain == "arbitrum":
-            return {
-                "chain": "arbitrum",
-                "address": address,
-                "balance": 2.5,
+                "balance": result["balance_eth"],
+                "balance_wei": result["balance_wei"],
                 "currency": "ETH",
-                "note": "Mock balance - Arbitrum adapter not fully implemented"
+                "network": "ethereum"
             }
 
-        return {"error": "Unknown chain"}
+        # Fallback
+        return {
+            "chain": chain,
+            "address": address,
+            "balance": 0,
+            "currency": chain.upper(),
+            "network": chain
+        }
 
     def get_supported_chains(self) -> list:
-        """Get list of supported chains."""
-        return self.SUPPORTED_CHAINS
+        """Return list of supported chains."""
+        return self._supported_chains
