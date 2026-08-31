@@ -1,0 +1,35 @@
+{
+  "name": "@lattice/protocol",
+  "version": "2.0.0",
+  "description": "Lattice Protocol JavaScript SDK - Agent Mesh Client",
+  "main": "lattice-client.js",
+  "types": "lattice-client.d.ts",
+  "scripts": {
+    "test": "jest",
+    "lint": "eslint .",
+    "build": "webpack --mode=production"
+  },
+  "keywords": [
+    "lattice",
+    "agent-mesh",
+    "ai-agents",
+    "blockchain",
+    "protocol",
+    "mcp-alternative"
+  ],
+  "author": "Shahzain",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shahzain112/Lattice-Protocol.git"
+  },
+  "bugs": {
+    "url": "https://github.com/shahzain112/Lattice-Protocol/issues"
+  },
+  "homepage": "https://github.com/shahzain112/Lattice-Protocol#readme",
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "eslint": "^8.57.0",
+    "webpack": "^5.90.0"
+  }
+}
