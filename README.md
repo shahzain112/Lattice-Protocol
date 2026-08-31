@@ -1,6 +1,6 @@
 **Lattice The New Protocol 😎**
 
-# README.md
+# README.md File
 
 readme_corrected = '''# 🔷 Lattice Protocol v2.0
 
