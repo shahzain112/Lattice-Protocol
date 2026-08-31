@@ -20,3 +20,5 @@ lattice_audit.log
 
 # Extra cloned folder
 Lattice-Protocol/
+
+server_private.pem
