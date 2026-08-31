@@ -88,14 +88,3 @@ docker run -p 8080:8080 lattice-protocol
 We are building the future of autonomous AI agents.
 
 **[GitHub](https://github.com/shahzain-lattice/lattice-protocol)** | **[Documentation](https://github.com/shahzain-lattice/lattice-protocol/wiki)**
-'''
-
-with open('/mnt/agents/output/README_corrected.md', 'w', encoding='utf-8') as f:
-    f.write(readme_corrected)
-
-print("✅ README_corrected.md generated!")
-print("\n🔧 FIXES MADE:")
-print("   1. Removed extra 'g' after image link")
-print("   2. Removed duplicate 'Architecture Comparison' heading")
-print("   3. Fixed 'Differnt' → 'Different'")
-print("   4. Cleaned up formatting")
