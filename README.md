@@ -1,5 +1,8 @@
+**Lattice The New Protocol 😎**
 
-# 🔷 Lattice Protocol v2.0
+# CORRECTED README.md
+
+readme_corrected = '''# 🔷 Lattice Protocol v2.0
 
 **The Secure, Stateless Protocol for AI, Data, Blockchain, and Gaming.**
 
@@ -7,13 +10,9 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115.6-009688.svg)](https://fastapi.tiangolo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-
-
 ## 📊 Architecture Comparison: Lattice vs MCP
 
-![Lattice vs MCP](Lattice_vs_MCP.png)g
-
-## 📊 Architecture Comparison: Lattice vs MCP
+![Lattice vs MCP](Lattice_vs_MCP.png)
 
 ## 🚀 Why Lattice?
 
@@ -27,9 +26,7 @@
 | 🧠 Vector DB        | ❌       | **pgvector Support**         |
 | ⚡ Stateless        | ❌       | **✅ Built-in**              |
 
-
-
-## 🔷 Lattice Ecosystem (Differnt From MCP)
+## 🔷 Lattice Ecosystem (Different From MCP)
 
 | Feature        | MCP       | **Lattice**                  |
 | -------------- | --------- | ---------------------------------- |
@@ -42,9 +39,9 @@
 ### 🆕 Ecosystem Actions
 
 ```bash
-# Registering Agent
-curl -X POST http://localhost:8080/lattice/v1/execute \
-  -H "Content-Type: application/json" \
+# Register Agent
+curl -X POST http://localhost:8080/lattice/v1/execute \\
+  -H "Content-Type: application/json" \\
   -d '{
     "request_id": "reg_001",
     "action": "register_agent",
@@ -55,9 +52,9 @@ curl -X POST http://localhost:8080/lattice/v1/execute \
     "timestamp": '$(date +%s)'
   }'
 
-# Discovering Agent
-curl -X POST http://localhost:8080/lattice/v1/execute \
-  -H "Content-Type: application/json" \
+# Discover Agents
+curl -X POST http://localhost:8080/lattice/v1/execute \\
+  -H "Content-Type: application/json" \\
   -d '{
     "request_id": "disc_001",
     "action": "discover_agents",
@@ -66,10 +63,39 @@ curl -X POST http://localhost:8080/lattice/v1/execute \
   }'
 ```
 
-
-
 ## 📦 Installation
 
 ```bash
 pip install -r requirements.txt
 ```
+
+## 🚀 Quick Start
+
+```bash
+# Start server
+python server.py
+
+# Run tests
+python test_lattice.py
+
+# Docker
+docker build -t lattice-protocol .
+docker run -p 8080:8080 lattice-protocol
+```
+
+## 🤝 Join the Lattice Ecosystem
+
+We are building the future of autonomous AI agents.
+
+**[GitHub](https://github.com/shahzain-lattice/lattice-protocol)** | **[Documentation](https://github.com/shahzain-lattice/lattice-protocol/wiki)**
+'''
+
+with open('/mnt/agents/output/README_corrected.md', 'w', encoding='utf-8') as f:
+    f.write(readme_corrected)
+
+print("✅ README_corrected.md generated!")
+print("\n🔧 FIXES MADE:")
+print("   1. Removed extra 'g' after image link")
+print("   2. Removed duplicate 'Architecture Comparison' heading")
+print("   3. Fixed 'Differnt' → 'Different'")
+print("   4. Cleaned up formatting")
