@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# Lattice-specific secrets
+server_private.pem
+lattice_audit.log
+
+# IDE and OS junk
+.vscode/
+.idea/
+.DS_Store
+*.log
+
+# Extra cloned folder
+Lattice-Protocol/

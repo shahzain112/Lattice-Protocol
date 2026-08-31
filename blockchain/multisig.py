@@ -2,7 +2,8 @@ from web3 import Web3
 
 class MultiSigHelper:
     def __init__(self, rpc_url="https://cloudflare-eth.com"):
-        self.w3 = Web3(Web3.HTTPProvider(rpc_url))
+        # Is line ko change karo
+        self.w3 = Web3(Web3.HTTPProvider("https://rpc.ankr.com/eth"))
     
     def is_multisig(self, address: str) -> dict:
         """Check if a wallet is a Gnosis Safe (Multi-Sig)"""
