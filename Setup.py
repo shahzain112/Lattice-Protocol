@@ -7,11 +7,11 @@ setup(
     name="lattice-protocol",
     version="2.0.0",
     author="Shahzain",
-    author_email="your-email@example.com",
+    author_email="shahzainahmed991@gmail.com",
     description="The Secure, Stateless Protocol for AI, Data, Blockchain, and Gaming",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/yourusername/lattice-protocol",
+    url="https://github.com/shahzain112/Lattice-Protocol",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 4 - Beta",
@@ -46,6 +46,7 @@ setup(
             "lattice-test=test_lattice:main",
         ],
     },
+    py_modules=["lattice_client"], 
     include_package_data=True,
     zip_safe=False,
 )

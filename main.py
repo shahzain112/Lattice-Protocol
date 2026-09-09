@@ -604,6 +604,40 @@ def handle_request(raw_input: bytes, client_id: Optional[str] = None) -> str:
                 error=f"Stats error: {str(e)}"
             )
 
+    # ==================== MCP BRIDGE MODULE ====================
+    # Yeh feature Lattice ko MCP se zyada powerful banata hai
+    elif req.action == "bridge_mcp_tool":
+        try:
+            tool_name = req.payload.get("tool_name")
+            arguments = req.payload.get("arguments", {})
+            
+            if not tool_name or not isinstance(tool_name, str):
+                raise ValueError("tool_name string required")
+            
+            # --- MCP BRIDGE LOGIC ---
+            # Yahan aap actual MCP server ko call karenge.
+            # Abhi ke liye main ek mock response de raha hu taake test ho sake.
+            # Future mein: aap yahan `mcp` python SDK use karke local MCP server se connect karoge.
+            
+            mock_mcp_result = {
+                "status": "success",
+                "tool_executed": tool_name,
+                "input_args": arguments,
+                "output": f"MCP Tool '{tool_name}' executed successfully via Lattice Bridge!"
+            }
+            
+            response = LatticeResponse(
+                request_id=req.request_id,
+                status="success",
+                data={"mcp_bridge_result": mock_mcp_result}
+            )
+        except Exception as e:
+            response = LatticeResponse(
+                request_id=req.request_id,
+                status="error",
+                error=f"MCP Bridge error: {str(e)}"
+            )
+
     # ==================== END ECOSYSTEM ACTIONS ====================
 
     else:
@@ -624,7 +658,7 @@ def handle_request(raw_input: bytes, client_id: Optional[str] = None) -> str:
 # -------------------- TEST RUN (LOCAL) --------------------
 if __name__ == "__main__":
     print("🚀 Lattice Secure Core v2.0 + Ecosystem Loaded!")
-    print("⚡ Features: Health, Balance, MultiSig, Gaming, Migration, Extensions, Swarm, VectorDB, MultiChain.")
+    print("⚡ Features: Health, Balance, MultiSig, Gaming, Migration, Extensions, Swarm, VectorDB, MultiChain, MCP Bridge.")
     print("🌐 Ecosystem: Agent Identity, Trust Scoring, Registry, Discovery")
     print(f"🔒 Rate Limit: {RATE_LIMIT} requests/minute per client")
 
@@ -662,5 +696,15 @@ if __name__ == "__main__":
     }
     response = handle_request(json.dumps(test_discover).encode())
     print(f"✅ Agent Discovery: {response}")
+    
+    # Test 4: MCP Bridge
+    test_mcp = {
+        "request_id": "test_mcp_001",
+        "action": "bridge_mcp_tool",
+        "payload": {"tool_name": "search_web", "arguments": {"query": "Lattice Protocol"}},
+        "timestamp": int(time.time())
+    }
+    response = handle_request(json.dumps(test_mcp).encode())
+    print(f"✅ MCP Bridge: {response}")
 
     print("\n💡 To start the HTTP server, run: python server.py")

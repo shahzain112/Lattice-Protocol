@@ -6,7 +6,7 @@ Lattice is a **trust-based agent economy protocol** for autonomous AI agents. Un
 
 ## Core Philosophy
 
-> **MCP** = AI client controls tools (Master-Slave)  
+> **MCP** = AI client controls tools (Master-Slave)
 > **Lattice** = Agents negotiate and transact autonomously (Peer-to-Peer)
 
 ## Message Format
@@ -39,22 +39,22 @@ Lattice is a **trust-based agent economy protocol** for autonomous AI agents. Un
 
 ### Core Actions
 
-| Action | Description | Auth Required |
-|--------|-------------|---------------|
-| `health_check` | Server health status | No |
-| `get_balance` | Query blockchain balance | No |
-| `submit_game_score` | Submit verified game score | HMAC |
-| `run_swarm` | Execute agent swarm tasks | Yes |
-| `store_vector` | Store vector embedding | Yes |
+| Action                | Description                | Auth Required |
+| --------------------- | -------------------------- | ------------- |
+| `health_check`      | Server health status       | No            |
+| `get_balance`       | Query blockchain balance   | No            |
+| `submit_game_score` | Submit verified game score | HMAC          |
+| `run_swarm`         | Execute agent swarm tasks  | Yes           |
+| `store_vector`      | Store vector embedding     | Yes           |
 
 ### Ecosystem Actions
 
-| Action | Description | MCP Equivalent |
-|--------|-------------|----------------|
-| `register_agent` | Register agent with identity | ❌ None |
-| `discover_agents` | Find agents by capability | ❌ None |
-| `get_agent_trust` | Query agent trust score | ❌ None |
-| `get_ecosystem_stats` | Get network statistics | ❌ None |
+| Action                  | Description                  | MCP Equivalent |
+| ----------------------- | ---------------------------- | -------------- |
+| `register_agent`      | Register agent with identity | ❌ None        |
+| `discover_agents`     | Find agents by capability    | ❌ None        |
+| `get_agent_trust`     | Query agent trust score      | ❌ None        |
+| `get_ecosystem_stats` | Get network statistics       | ❌ None        |
 
 ## Security
 
@@ -67,13 +67,13 @@ Lattice is a **trust-based agent economy protocol** for autonomous AI agents. Un
 
 ### Error Codes
 
-| HTTP Code | Meaning | When |
-|-----------|---------|------|
-| 200 | Success | Request processed |
-| 400 | Bad Request | Invalid payload |
-| 401 | Unauthorized | Invalid signature/timestamp |
-| 429 | Rate Limited | Too many requests |
-| 503 | Service Unavailable | Module not loaded |
+| HTTP Code | Meaning             | When                        |
+| --------- | ------------------- | --------------------------- |
+| 200       | Success             | Request processed           |
+| 400       | Bad Request         | Invalid payload             |
+| 401       | Unauthorized        | Invalid signature/timestamp |
+| 429       | Rate Limited        | Too many requests           |
+| 503       | Service Unavailable | Module not loaded           |
 
 ## Versioning
 
@@ -91,14 +91,14 @@ ws://host:8080/lattice/v1/ws
 
 ### Message Types
 
-| Type | Direction | Description |
-|------|-----------|-------------|
-| `connection_established` | Server → Client | Handshake complete |
-| `ping` | Client → Server | Keep-alive |
-| `pong` | Server → Client | Keep-alive response |
-| `subscribe` | Client → Server | Subscribe to channel |
-| `game_event` | Client → Server | Real-time game event |
-| `ai_stream` | Client → Server | AI streaming request |
+| Type                       | Direction        | Description          |
+| -------------------------- | ---------------- | -------------------- |
+| `connection_established` | Server → Client | Handshake complete   |
+| `ping`                   | Client → Server | Keep-alive           |
+| `pong`                   | Server → Client | Keep-alive response  |
+| `subscribe`              | Client → Server | Subscribe to channel |
+| `game_event`             | Client → Server | Real-time game event |
+| `ai_stream`              | Client → Server | AI streaming request |
 
 ## Agent Lifecycle
 

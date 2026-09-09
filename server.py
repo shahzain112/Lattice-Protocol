@@ -14,12 +14,12 @@ app = FastAPI(
     version="2.0.0"
 )
 
-# CORS Configuration
+# CORS Configuration (Updated: allow_methods=["*"])
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["POST", "GET"],
+    allow_credentials=False,  # Changed from True to False
+    allow_methods=["*"],      # Changed from ["POST", "GET"] to ["*"]
     allow_headers=["*"],
 )
 
@@ -36,7 +36,7 @@ _max_ws_connections = 100
 
 @app.post("/lattice/v1/execute")
 async def execute(request: Request):
-    """Execute a Lattice protocol action."""
+    """Execute a Lattice protocol action with signature verification."""
     try:
         content_length = request.headers.get('content-length')
         if content_length and int(content_length) > MAX_REQUEST_SIZE:
@@ -46,9 +46,31 @@ async def execute(request: Request):
             )
 
         raw_body = await request.body()
-        client_ip = request.client.host if request.client else "unknown"
+        payload = json.loads(raw_body)
 
-        response_json = handle_request(raw_body, client_id=client_ip)
+        # --- NAYA CODE: Identity Verification ---
+        # Pehle IP use ho raha tha, ab public key use karein
+        client_public_key = payload.get("sender_id")
+        signature = payload.get("signature")
+
+        if not client_public_key or not signature:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Missing sender_id or signature"
+            )
+
+        # Crypto Auth Import (from crypto_auth.py)
+        from crypto_auth import verify_lattice_signature
+
+        if not verify_lattice_signature(payload):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid signature or expired timestamp"
+            )
+
+        # Agar signature verified ho gaya, tabhi process karein
+        # client_id ab public key hai (IP nahi)
+        response_json = handle_request(raw_body, client_id=client_public_key)
         response_data = json.loads(response_json)
 
         # Always return JSONResponse with proper status code
@@ -282,6 +304,6 @@ if __name__ == "__main__":
     print("Lattice HTTP + WebSocket Server v2.0")
     print("HTTP:    http://localhost:8080/lattice/v1/execute")
     print("WebSocket: ws://localhost:8080/lattice/v1/ws")
-    print("Security: CORS, Rate limiting, WS validation")
+    print("Security: CORS, Rate limiting, WS validation, Signature Verification")
 
     uvicorn.run(app, host="127.0.0.1", port=8080, log_level="info")

@@ -6,6 +6,10 @@ import sys
 import hmac
 import hashlib
 
+# --- NAYA IMPORT: Cryptography for Ed25519 ---
+from cryptography.hazmat.primitives.asymmetric import ed25519
+from cryptography.hazmat.primitives import serialization
+
 # Configuration (can be overridden via environment)
 BASE_URL = os.environ.get("LATTICE_URL", "http://localhost:8080")
 API_ENDPOINT = f"{BASE_URL}/lattice/v1/execute"
@@ -13,6 +17,40 @@ API_ENDPOINT = f"{BASE_URL}/lattice/v1/execute"
 # Test tracking
 _tests_passed = 0
 _tests_failed = 0
+
+# --- NAYA CODE: Temporary Private Key Generation ---
+# Test ke liye ek temporary Ed25519 keypair generate karein
+_test_private_key = ed25519.Ed25519PrivateKey.generate()
+_test_public_key = _test_private_key.public_key()
+
+# Public key ko hex string mein convert karein taake sender_id ban sake
+_test_public_key_hex = _test_public_key.public_bytes(
+    encoding=serialization.Encoding.Raw,
+    format=serialization.PublicFormat.Raw
+).hex()
+
+def _sign_payload(payload):
+    """Payload ko sign karne ka function"""
+    # Payload ki copy banayein taaki original data safe rahe
+    payload_copy = payload.copy()
+    
+    # FIX: sender_id ko copy mein daal dein taake server ke hisaab se message ban sake
+    payload_copy["sender_id"] = _test_public_key_hex
+    
+    # Signature ko remove karein (agar exist karta ho)
+    payload_copy.pop("signature", None)
+    
+    # Payload ko canonical JSON string mein convert karein (sort_keys=True zaroori hai)
+    message = json.dumps(payload_copy, sort_keys=True).encode('utf-8')
+    
+    # Ed25519 private key se sign karein
+    signature = _test_private_key.sign(message).hex()
+    
+    # Original payload mein signature aur sender_id add karein
+    payload["sender_id"] = _test_public_key_hex
+    payload["signature"] = signature
+    
+    return payload
 
 def _is_network_error(data):
     """Check if error is due to network connectivity issues."""
@@ -52,10 +90,13 @@ def _assert_response(response, expected_status="success", allow_network_error=Fa
         print(f"   Response: {response.text}")
         return None
 
+# test_lattice.py mein _make_request function ko update karein:
 def _make_request(payload):
     """Helper to make requests with error handling."""
     try:
-        response = requests.post(API_ENDPOINT, json=payload, timeout=10)
+        # --- NAYA LINE: Payload ko sign karein ---
+        signed_payload = _sign_payload(payload)
+        response = requests.post(API_ENDPOINT, json=signed_payload, timeout=10)
         return response
     except requests.exceptions.ConnectionError:
         print(f"CONNECTION ERROR: Server not running at {BASE_URL}")
@@ -289,7 +330,7 @@ def test_expired_request():
             print("Expired Request: FAILED")
 
 if __name__ == "__main__":
-    print("Lattice Protocol Test Suite v2.0")
+    print("Lattice Protocol Test Suite v2.0 (With Crypto Signatures)")
     print(f"Target: {BASE_URL}")
     print("=" * 50)
 
