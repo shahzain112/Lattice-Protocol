@@ -6,7 +6,7 @@
 
 ## 📊 Architecture Comparison: Lattice vs MCP
 
-![Lattice vs MCP](./Lattice_vs_MCP.png)
+![Lattice vs MCP](Lattice_vs_MCP.png)
 
 ## 🚀 Why Lattice?
 
