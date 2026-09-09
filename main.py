@@ -13,6 +13,9 @@ from security.crypto import LatticeVault
 from core.messages import parse_secure_request, LatticeResponse, LatticeRequest
 from data_engine.pipeline import DataEngineCore
 
+# -------------------- DATABASE IMPORT --------------------
+import database
+database.init_db()  # Initialize DB on startup
 
 # -------------------- LATTICE ECOSYSTEM IMPORTS --------------------
 # Yeh MCP se bilkul alag hai - Agent Mesh Protocol
@@ -77,12 +80,15 @@ def _check_rate_limit(client_id: str) -> bool:
 
 # -------------------- LATTICE ECOSYSTEM FUNCTIONS --------------------
 
-def register_agent(capabilities: list, stake: float = 0.0) -> dict:
+def register_agent(sender_id: str, capabilities: list, stake: float = 0.0) -> dict:
     """
     Register a new agent in the Lattice ecosystem.
-    MCP mein yeh feature NAHI hai!
     """
     agent = AgentIdentity()
+    
+    # Set the agent ID to the test public ID (sender_id).
+    agent.agent_id = sender_id
+    
     for cap in capabilities:
         agent.add_capability(AgentCapability(**cap))
 
@@ -97,6 +103,9 @@ def register_agent(capabilities: list, stake: float = 0.0) -> dict:
 
     _lattice_registry.register(entry)
     _lattice_trust.update_stake(agent.agent_id, stake)
+
+    # This line has been added to save it in the DB.
+    database.add_agent(agent.agent_id, agent.public_key.hex(), [c.name for c in agent.capabilities], agent.trust_score, stake, "active")
 
     return {
         "agent_id": agent.agent_id,
@@ -162,7 +171,7 @@ def handle_request(raw_input: bytes, client_id: Optional[str] = None) -> str:
             "error": "Rate limit exceeded. Max 100 requests/minute."
         })
 
-    # 1. Parser: Malicious requests ko yahan hi rok deta hai
+    # 1. Parser: Stops malicious requests right here.
     try:
         req: LatticeRequest = parse_secure_request(raw_input)
     except ValueError as e:
@@ -522,17 +531,21 @@ def handle_request(raw_input: bytes, client_id: Optional[str] = None) -> str:
 
 
     # ==================== LATTICE ECOSYSTEM ACTIONS ====================
-    # Yeh actions MCP se bilkul alag hain - Agent Mesh Protocol
+    # These actions are completely different from the MCP—Agent Mesh Protocol.
 
     elif req.action == "register_agent":
         try:
             capabilities = req.payload.get("capabilities", [])
             stake = req.payload.get("stake", 0.0)
 
+            # Extract the sender_id (public key) from the request.
+            sender_id = getattr(req, "sender_id", None) or req.payload.get("sender_id", "unknown")
+            
             if not isinstance(capabilities, list):
                 raise ValueError("capabilities must be a list")
 
-            result = register_agent(capabilities, stake)
+            # Pass the Sender_ID.
+            result = register_agent(sender_id, capabilities, stake)
             response = LatticeResponse(
                 request_id=req.request_id,
                 status="success",
@@ -614,11 +627,6 @@ def handle_request(raw_input: bytes, client_id: Optional[str] = None) -> str:
             if not tool_name or not isinstance(tool_name, str):
                 raise ValueError("tool_name string required")
             
-            # --- MCP BRIDGE LOGIC ---
-            # Yahan aap actual MCP server ko call karenge.
-            # Abhi ke liye main ek mock response de raha hu taake test ho sake.
-            # Future mein: aap yahan `mcp` python SDK use karke local MCP server se connect karoge.
-            
             mock_mcp_result = {
                 "status": "success",
                 "tool_executed": tool_name,
@@ -636,6 +644,112 @@ def handle_request(raw_input: bytes, client_id: Optional[str] = None) -> str:
                 request_id=req.request_id,
                 status="error",
                 error=f"MCP Bridge error: {str(e)}"
+            )
+
+    # ==================== NAYA LOGIC: EXECUTE_TASK & PAY_AGENT ====================
+    
+    elif req.action == "execute_task":
+        try:
+            agent_id = req.payload.get("agent_id")
+            task_data = req.payload.get("task_data")
+            
+            # 1. Agent DB mein hai ya nahi check karo
+            agent_info = database.get_agent(agent_id)
+            if not agent_info:
+                raise ValueError("Agent not registered in Lattice")
+                
+            if agent_info[4] == 'slashed': # status check
+                raise ValueError("Agent is slashed and cannot perform tasks")
+                
+            # 2. Agent task kar raha hai (Mock execution)
+            task_result = {"result": "Task completed successfully by " + agent_id}
+            
+            # 3. Trust Score Badhao (Kyunki usne acha kaam kiya)
+            current_trust = agent_info[3] # trust_score from DB
+            new_trust = min(100.0, current_trust + 1.0) # Max 100
+            database.update_trust(agent_id, new_trust)
+            
+            response = LatticeResponse(
+                request_id=req.request_id,
+                status="success",
+                data={
+                    "agent_id": agent_id,
+                    "result": task_result,
+                    "new_trust_score": new_trust
+                }
+            )
+        except Exception as e:
+            response = LatticeResponse(
+                request_id=req.request_id,
+                status="error",
+                error=f"Task execution error: {str(e)}"
+            )
+
+    elif req.action == "pay_agent":
+        try:
+            agent_id = req.payload.get("agent_id")
+            amount = req.payload.get("amount")
+            payer = req.payload.get("payer", "unknown")
+
+            if not agent_id or not isinstance(agent_id, str):
+                raise ValueError("agent_id string required")
+            if not isinstance(amount, (int, float)) or amount <= 0:
+                raise ValueError("amount must be a positive number")
+            if not isinstance(payer, str):
+                raise ValueError("payer must be a string")
+
+            # Verify agent exists & is active
+            agent_info = database.get_agent(agent_id)
+            if not agent_info:
+                raise ValueError("Agent not registered in Lattice")
+            if agent_info[4] == 'slashed':
+                raise ValueError("Cannot pay a slashed agent")
+
+            # Record payment in DB
+            database.record_payment(agent_id, amount, payer)
+
+            # Refresh agent info for response
+            updated = database.get_agent(agent_id)
+            response = LatticeResponse(
+                request_id=req.request_id,
+                status="success",
+                data={
+                    "agent_id": agent_id,
+                    "payer": payer,
+                    "amount_paid": amount,
+                    "new_stake": updated[5],
+                    "message": f"Payment of {amount} recorded for agent {agent_id}"
+                }
+            )
+        except Exception as e:
+            response = LatticeResponse(
+                request_id=req.request_id,
+                status="error",
+                error=f"Payment error: {str(e)}"
+            )
+
+    # ==================== New LOGIC: SLASH_AGENT ====================
+
+    elif req.action == "slash_agent":
+        # This is a new feature! If the agent makes a mistake, set the trust level to zero.
+        try:
+            agent_id = req.payload.get("agent_id")
+            reason = req.payload.get("reason", "Bad behavior")
+            
+            database.update_trust(agent_id, 0.0)
+            # Mark the status as 'slashed' so that the task cannot be performed.
+            database.update_status(agent_id, "slashed")
+            
+            response = LatticeResponse(
+                request_id=req.request_id,
+                status="success",
+                data={"message": f"Agent {agent_id} slashed. Reason: {reason}"}
+            )
+        except Exception as e:
+            response = LatticeResponse(
+                request_id=req.request_id,
+                status="error",
+                error=str(e)
             )
 
     # ==================== END ECOSYSTEM ACTIONS ====================

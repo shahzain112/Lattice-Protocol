@@ -18,12 +18,12 @@ API_ENDPOINT = f"{BASE_URL}/lattice/v1/execute"
 _tests_passed = 0
 _tests_failed = 0
 
-# --- NAYA CODE: Temporary Private Key Generation ---
-# Test ke liye ek temporary Ed25519 keypair generate karein
+# --- New CODE: Temporary Private Key Generation ---
+# Generate a temporary Ed25519 key pair for testing.
 _test_private_key = ed25519.Ed25519PrivateKey.generate()
 _test_public_key = _test_private_key.public_key()
 
-# Public key ko hex string mein convert karein taake sender_id ban sake
+# Convert the public key into a hex string to generate the sender_id.
 _test_public_key_hex = _test_public_key.public_bytes(
     encoding=serialization.Encoding.Raw,
     format=serialization.PublicFormat.Raw
@@ -31,22 +31,22 @@ _test_public_key_hex = _test_public_key.public_bytes(
 
 def _sign_payload(payload):
     """Payload ko sign karne ka function"""
-    # Payload ki copy banayein taaki original data safe rahe
+    # Create a copy of the payload so that the original data remains safe.
     payload_copy = payload.copy()
     
-    # FIX: sender_id ko copy mein daal dein taake server ke hisaab se message ban sake
+    # Fix: Include sender_id in the copy so that the message can be generated according to the server.
     payload_copy["sender_id"] = _test_public_key_hex
     
-    # Signature ko remove karein (agar exist karta ho)
+    # Remove the signature (if it exists).
     payload_copy.pop("signature", None)
     
-    # Payload ko canonical JSON string mein convert karein (sort_keys=True zaroori hai)
+    # Convert the payload to a canonical JSON string (`sort_keys=True` is required).
     message = json.dumps(payload_copy, sort_keys=True).encode('utf-8')
     
-    # Ed25519 private key se sign karein
+    # Sign in with your private key ed25519
     signature = _test_private_key.sign(message).hex()
     
-    # Original payload mein signature aur sender_id add karein
+    # Add the signature and sender_id to the original payload.
     payload["sender_id"] = _test_public_key_hex
     payload["signature"] = signature
     
@@ -329,11 +329,84 @@ def test_expired_request():
         else:
             print("Expired Request: FAILED")
 
+# 11. Test: Register Agent (the agent must be registered before performing the task)
+def test_register_agent():
+    print("\nTesting: register_agent")
+    payload = {
+        "request_id": "test_reg_agent_001",
+        "action": "register_agent",
+        "payload": {
+            "capabilities": [
+                {
+                    "name": "web_search", 
+                    "description": "Searches the web", 
+                    "input_schema": {"query": "string"},   # --- YEH LINE MISSING THI ---
+                    "output_schema": {"results": "list"},  # --- YEH LINE MISSING THI ---
+                    "fee": 0.1
+                }
+            ],
+            "stake": 500.0
+        },
+        "timestamp": int(time.time())
+    }
+    # Note: _make_request automatically sign kar dega (tumhara existing code)
+    response = _make_request(payload)
+    if response is not None:
+        data = _assert_response(response, "success")
+        if data:
+            print("Agent Registration: PASSED")
+        else:
+            print("Agent Registration: FAILED")
+
+# 12. Test: Execute Task (Agent task karega aur trust score badhega)
+def test_execute_task():
+    print("\nTesting: execute_task")
+    # Yeh agent_id test_register_agent se aayega, hum hardcoded use kar rahe hain test ke liye
+    # Dhyan raho: yeh public key test_lattice.py ke _test_public_key_hex se match honi chahiye
+    payload = {
+        "request_id": "test_task_001",
+        "action": "execute_task",
+        "payload": {
+            "agent_id": _test_public_key_hex, # Same key jo sign kar rahi hai
+            "task_data": {"query": "Fetch weather for Karachi"}
+        },
+        "timestamp": int(time.time())
+    }
+    response = _make_request(payload)
+    if response is not None:
+        data = _assert_response(response, "success")
+        if data:
+            print("Execute Task (Trust Update): PASSED")
+        else:
+            print("Execute Task: FAILED")
+
+# 13. Test: Slash Agent (Agent ko punish karna)
+def test_slash_agent():
+    print("\nTesting: slash_agent")
+    payload = {
+        "request_id": "test_slash_001",
+        "action": "slash_agent",
+        "payload": {
+            "agent_id": _test_public_key_hex,
+            "reason": "Provided wrong data"
+        },
+        "timestamp": int(time.time())
+    }
+    response = _make_request(payload)
+    if response is not None:
+        data = _assert_response(response, "success")
+        if data:
+            print("Slash Agent: PASSED")
+        else:
+            print("Slash Agent: FAILED")
+
+# --- Main block mein yeh add karo ---
 if __name__ == "__main__":
     print("Lattice Protocol Test Suite v2.0 (With Crypto Signatures)")
     print(f"Target: {BASE_URL}")
     print("=" * 50)
 
+    # Existing Tests
     test_health()
     test_blockchain()
     test_gaming()
@@ -344,6 +417,11 @@ if __name__ == "__main__":
     test_multichain()
     test_invalid_action()
     test_expired_request()
+    
+    # Naye Ecosystem Tests
+    test_register_agent()
+    test_execute_task()
+    test_slash_agent()
 
     print("\n" + "=" * 50)
     print(f"Results: {_tests_passed} passed, {_tests_failed} failed")

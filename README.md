@@ -8,6 +8,14 @@
 
 ![Lattice vs MCP](Lattice_vs_MCP.png)
 
+## 🚀 Features
+
+* **Ed25519 Cryptographic Identity** : Every agent signs requests. No more IP-based tracking.
+* **Trust Scoring Engine** : Agents build reputation by successfully completing tasks.
+* **Slashing Mechanism** : Malicious agents are penalized, and their trust score is dropped to zero.
+* **Persistent Registry** : SQLite-backed agent registry (survives server restarts).
+* **MCP Bridge Ready** : Designed to sit on top of MCP, adding economic and trust layers.
+
 ## 🚀 Why Lattice?
 
 | Feature              | MCP      | **Lattice**                  |
