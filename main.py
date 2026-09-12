@@ -617,7 +617,7 @@ def handle_request(raw_input: bytes, client_id: Optional[str] = None) -> str:
                 error=f"Stats error: {str(e)}"
             )
 
-    # ==================== MCP BRIDGE MODULE ====================
+    # ==================== REAL MCP BRIDGE MODULE ====================
     elif req.action == "bridge_mcp_tool":
         try:
             tool_name = req.payload.get("tool_name")
@@ -627,33 +627,43 @@ def handle_request(raw_input: bytes, client_id: Optional[str] = None) -> str:
             if not tool_name or not isinstance(tool_name, str):
                 raise ValueError("tool_name string required")
             
-            # --- REAL MCP BRIDGE LOGIC ---
-            # Here Lattice will call the actual Mcp Server
-            # For now, we are decoupling this from real API calls.
-            # So that an entry appears in your logs and there is proof that the tool was called..
+            # --- REAL MCP SDK INTEGRATION ---
+            # Yeh official MCP Python SDK ka code hai jo local MCP server se baat karega
+            from mcp import ClientSession, StdioServerParameters
+            from mcp.client.stdio import stdio_client
+            import asyncio
+            import os
+
+            async def call_real_mcp_tool():
+                # Example: Hum ek local Filesystem MCP server ko spawn kar rahe hain
+                # (Tum isko kisi bhi MCP server ke saath connect kar sakte ho)
+                server_params = StdioServerParameters(
+                    command="npx", # Ya python, agar python ka MCP server ho
+                    args=["-y", "@modelcontextprotocol/server-filesystem", os.getcwd()],
+                    env=None
+                )
+                
+                async with stdio_client(server_params) as (read, write):
+                    async with ClientSession(read, write) as session:
+                        # MCP Server ko initialize karo
+                        await session.initialize()
+                        
+                        # Tool ko call karo
+                        result = await session.call_tool(tool_name, arguments)
+                        return result
+
+            # Async function ko run karna
+            mcp_result = asyncio.run(call_real_mcp_tool())
             
-            import requests as req_lib
-            task_result = {}
+            task_result = {"tool": tool_name, "mcp_response": str(mcp_result)}
+            status_msg = "Success (Real MCP Call)"
             
-            # Suppose that MCP tool is"get_crypto_price"
-            if tool_name == "get_crypto_price":
-                api_res = req_lib.get("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT", timeout=5)
-                if api_res.status_code == 200:
-                    task_result = {"tool": tool_name, "price": api_res.json().get("price")}
-                    status_msg = "Success"
-                    
-                    # Agent ka trust score bhi badhao kyunki usne tool sahi chalaya
-                    if agent_id:
-                        agent_info = database.get_agent(agent_id)
-                        if agent_info:
-                            new_trust = min(100.0, agent_info[3] + 1.0)
-                            database.update_trust(agent_id, new_trust)
-                else:
-                    task_result = {"error": "MCP Tool API failed"}
-                    status_msg = "Failed"
-            else:
-                task_result = {"message": f"Tool {tool_name} not found in Lattice Bridge"}
-                status_msg = "Unknown Tool"
+            # Agent ka trust score badhao kyunki usne MCP tool sahi chalaya
+            if agent_id:
+                agent_info = database.get_agent(agent_id)
+                if agent_info:
+                    new_trust = min(100.0, agent_info[3] + 1.0)
+                    database.update_trust(agent_id, new_trust)
             
             # Audit Log mein daalo
             if agent_id:
@@ -668,7 +678,7 @@ def handle_request(raw_input: bytes, client_id: Optional[str] = None) -> str:
             response = LatticeResponse(
                 request_id=req.request_id,
                 status="error",
-                error=f"MCP Bridge error: {str(e)}"
+                error=f"Real MCP Bridge error: {str(e)}"
             )
 
     # ==================== NAYA LOGIC: EXECUTE_TASK & PAY_AGENT ====================

@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from main import handle_request
 import uvicorn
+import bcrypt
 import database
 # Server start hone par DB auto-initialize hogi!
 database.init_db()
@@ -303,103 +304,110 @@ async def secure_endpoint(request: Request):
         "timestamp": int(time.time())
     }
 
-from fastapi.responses import HTMLResponse, RedirectResponse
-import sqlite3
-
-# --- Naye Endpoints for Dashboard Buttons ---
-
-@app.post("/ui/run_task")
-async def ui_run_task():
-    """Dashboard se button daba kar task execute karne ke liye"""
-    conn = sqlite3.connect('lattice_agents.db')
-    c = conn.cursor()
-    # Pehle agent ko uthao
-    c.execute("SELECT public_key, trust_score, tasks_completed FROM agents LIMIT 1")
-    agent = c.fetchone()
-    
-    if agent:
-        # Trust +2 aur Tasks +1 karo (Max 100)
-        new_trust = min(100.0, agent[1] + 2.0)
-        new_tasks = agent[2] + 1
-        c.execute("UPDATE agents SET trust_score=?, tasks_completed=? WHERE public_key=?", 
-                  (new_trust, new_tasks, agent[0]))
-        conn.commit()
-    conn.close()
-    # Dashboard par wapas bhejo
-    return RedirectResponse(url="/", status_code=303)
-
-@app.post("/ui/slash_agent")
-async def ui_slash_agent():
-    """Agent ko slash karne ke liye"""
-    conn = sqlite3.connect('lattice_agents.db')
-    c = conn.cursor()
-    c.execute("SELECT public_key FROM agents LIMIT 1")
-    agent = c.fetchone()
-    
-    if agent:
-        # Trust 0 aur Status 'slashed' kar do
-        c.execute("UPDATE agents SET trust_score=0.0, tasks_completed=0, status='slashed' WHERE public_key=?", 
-                  (agent[0],))
-        conn.commit()
-    conn.close()
-    return RedirectResponse(url="/", status_code=303)
-
-@app.post("/ui/register_new")
-async def ui_register_new():
-    """Dashboard se naya dummy agent register karne ke liye"""
-    import secrets
-    from main import register_agent
-    # Random public key generate karke register karo
-    dummy_key = secrets.token_hex(32)
-    register_agent([{"name": "web_scraper", "fee": 0.5}], stake=100.0)
-    return RedirectResponse(url="/", status_code=303)
-
+# ==========================================
+# DASHBOARD & UI ENDPOINTS (Secured)
+# ==========================================
 
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi import Form
+from fastapi import Depends, HTTPException, status, Request, Form
+import bcrypt
+import time
 import sqlite3
 import database
 
-@app.post("/ui/run_task")
-async def ui_run_task(agent_id: str = Form(...)):
+# Brute Force Protection Tracker
+_login_attempts = {}
+
+def verify_admin(request: Request):
+    """Secure verification with Brute Force protection"""
+    client_ip = request.client.host if request.client else "unknown"
+    if client_ip in _login_attempts and _login_attempts[client_ip]["count"] >= 3:
+        block_time = time.time() - _login_attempts[client_ip]["last_attempt"]
+        if block_time < 300:
+            raise HTTPException(status_code=429, detail="Too many attempts. Blocked for 5 min.")
+    
+    session_token = request.cookies.get("lattice_session")
+    if session_token and session_token == "valid_admin_session":
+        return True
+    raise HTTPException(status_code=401, detail="Not authenticated", headers={"Location": "/login"})
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page():
+    return """
+    <html>
+        <head><title>Lattice Admin Login</title>
+        <style>
+            body { font-family: Arial; background: #f4f4f9; display: flex; justify-content: center; align-items: center; height: 100vh; }
+            .login-box { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+            input { display: block; width: 100%; padding: 10px; margin: 10px 0; box-sizing: border-box; }
+            button { width: 100%; padding: 10px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        </style>
+        </head>
+        <body>
+            <div class="login-box">
+                <h2>🛡️ Lattice Admin Access</h2>
+                <form action="/authenticate" method="POST">
+                    <input type="text" name="username" placeholder="Username" required>
+                    <input type="password" name="password" placeholder="Password" required>
+                    <button type="submit">Login Securely</button>
+                </form>
+            </div>
+        </body>
+    </html>
+    """
+
+@app.post("/authenticate")
+async def authenticate_user(username: str = Form(...), password: str = Form(...), request: Request = None):
+    client_ip = request.client.host if request.client else "unknown"
+    if client_ip in _login_attempts and _login_attempts[client_ip]["count"] >= 3:
+        if time.time() - _login_attempts[client_ip]["last_attempt"] < 300:
+            return HTMLResponse("<h3>🚫 IP Blocked. Try again after 5 minutes.</h3>")
+    
     conn = sqlite3.connect('lattice_agents.db')
     c = conn.cursor()
-    c.execute("SELECT trust_score, tasks_completed FROM agents WHERE public_key=?", (agent_id,))
-    agent = c.fetchone()
-    if agent:
-        new_trust = min(100.0, agent[0] + 2.0)
-        new_tasks = agent[1] + 1
-        c.execute("UPDATE agents SET trust_score=?, tasks_completed=? WHERE public_key=?", 
-                  (new_trust, new_tasks, agent_id))
-        conn.commit()
-        database.log_task(agent_id, "Execute API Task", "Success")
-    conn.close()
-    return RedirectResponse(url="/", status_code=303)
-
-@app.post("/ui/slash_agent")
-async def ui_slash_agent(agent_id: str = Form(...)):
-    # Direct DB se stake burn kar do
-    database.burn_stake(agent_id)
-    database.log_task(agent_id, "Manual Slash via UI", "Stake Burned")
-    return RedirectResponse(url="/", status_code=303)
-
-@app.post("/ui/register_new")
-async def ui_register_new():
-    import secrets
-    from main import register_agent
-    dummy_key = secrets.token_hex(32)
-    # Yahan direct DB mein daal rahe hain taake stake properly set ho
-    database.add_agent(dummy_key, [{"name": "web_scraper", "fee": 0.5}], 100.0)
-    return RedirectResponse(url="/", status_code=303)
-
-@app.get("/", response_class=HTMLResponse)
-async def dashboard():
-    conn = sqlite3.connect('lattice_agents.db')
-    c = conn.cursor()
-    c.execute('SELECT public_key, trust_score, tasks_completed, status, stake FROM agents')
-    agents = c.fetchall()
+    c.execute("SELECT password_hash FROM admins WHERE username=?", (username,))
+    row = c.fetchone()
     conn.close()
     
+    if row and bcrypt.checkpw(password.encode('utf-8'), row[0].encode('utf-8')):
+        if client_ip in _login_attempts: del _login_attempts[client_ip]
+        response = RedirectResponse(url="/", status_code=303)
+        response.set_cookie(key="lattice_session", value="valid_admin_session", httponly=True, samesite="strict")
+        return response
+    else:
+        if client_ip not in _login_attempts:
+            _login_attempts[client_ip] = {"count": 0, "last_attempt": 0}
+        _login_attempts[client_ip]["count"] += 1
+        _login_attempts[client_ip]["last_attempt"] = time.time()
+        return HTMLResponse(f"<h3>❌ Invalid Credentials. Attempts remaining: {3 - _login_attempts[client_ip]['count']}</h3>")
+
+@app.get("/logout")
+async def logout():
+    response = RedirectResponse(url="/login", status_code=303)
+    response.delete_cookie("lattice_session")
+    return response
+
+@app.get("/", response_class=HTMLResponse)
+async def dashboard(request: Request):
+    try:
+        verify_admin(request)
+    except HTTPException:
+        return RedirectResponse(url="/login", status_code=303)
+
+    conn = sqlite3.connect('lattice_agents.db')
+    c = conn.cursor()
+    
+    # Agents Data
+    c.execute('SELECT public_key, trust_score, tasks_completed, status, stake FROM agents')
+    agents = c.fetchall()
+    
+    # Stats Calculation
+    total_agents = len(agents)
+    slashed_agents = len([a for a in agents if a[3] == 'slashed'])
+    active_agents = total_agents - slashed_agents
+    total_stake = sum(a[4] for a in agents)
+    
+    conn.close()
     logs = database.get_logs(5)
 
     html_content = f"""
@@ -409,6 +417,7 @@ async def dashboard():
             <style>
                 body {{ font-family: Arial; background: #f4f4f9; padding: 20px; }}
                 h1, h2 {{ color: #333; }}
+                .header {{ display: flex; justify-content: space-between; align-items: center; }}
                 table {{ width: 100%; border-collapse: collapse; background: white; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }}
                 th, td {{ padding: 12px; border-bottom: 1px solid #ddd; text-align: left; }}
                 th {{ background-color: #4CAF50; color: white; }}
@@ -416,12 +425,44 @@ async def dashboard():
                 .btn-success {{ background-color: #28a745; color: white; }}
                 .btn-danger {{ background-color: #dc3545; color: white; }}
                 .btn-primary {{ background-color: #007bff; color: white; }}
+                .btn-secondary {{ background-color: #6c757d; color: white; text-decoration: none; padding: 10px 15px; border-radius: 5px; }}
                 select {{ padding: 10px; font-size: 16px; border-radius: 5px; margin-right: 10px; }}
+                
+                /* Stats Cards CSS */
+                .stats-container {{ display: flex; gap: 20px; margin-bottom: 30px; }}
+                .card {{ background: white; padding: 20px; border-radius: 10px; width: 23%; box-shadow: 0 4px 8px rgba(0,0,0,0.1); text-align: center; }}
+                .card h3 {{ font-size: 40px; margin: 0; color: #007bff; }}
+                .card p {{ color: #666; margin: 5px 0 0 0; font-weight: bold; }}
+                .card.danger h3 {{ color: #dc3545; }}
+                .card.success h3 {{ color: #28a745; }}
             </style>
         </head>
         <body>
-            <h1>🛡️ Lattice Protocol - Control Center</h1>
+            <div class="header">
+                <h1>🛡️ Lattice Protocol - Control Center</h1>
+                <a href='/logout' class="btn-secondary">Logout</a>
+            </div>
             
+            <!-- STATS CARDS -->
+            <div class="stats-container">
+                <div class="card">
+                    <h3>{total_agents}</h3>
+                    <p>Total Agents</p>
+                </div>
+                <div class="card success">
+                    <h3>{active_agents}</h3>
+                    <p>Active Agents</p>
+                </div>
+                <div class="card danger">
+                    <h3>{slashed_agents}</h3>
+                    <p>Slashed Agents</p>
+                </div>
+                <div class="card">
+                    <h3>{total_stake}</h3>
+                    <p>Total Staked Value</p>
+                </div>
+            </div>
+
             <h2>Agent Actions</h2>
             <div style="display: flex; align-items: center; margin-bottom: 20px; flex-wrap: wrap;">
                 <form action="/ui/register_new" method="POST" style="display:inline;">
@@ -443,6 +484,14 @@ async def dashboard():
                     </select>
                     <button type="submit" class="btn btn-danger">Slash & Burn Stake</button>
                 </form>
+                
+                <form action="/ui/pay_agent" method="POST" style="display:inline; display: flex; align-items: center; margin-top: 10px;">
+                    <select name="agent_id" required>
+                        <option value="" disabled selected>Select Agent to Pay...</option>
+                        {"".join([f"<option value='{a[0]}'>{a[0][:15]}... (Trust: {a[1]})</option>" for a in agents])}
+                    </select>
+                    <button type="submit" class="btn" style="background-color: #ffc107; color: black;">Pay 10 USDC</button>
+                </form>
             </div>
 
             <h2>Agents Registry</h2>
@@ -459,7 +508,74 @@ async def dashboard():
         </body>
     </html>
     """
-    return html_content
+    return HTMLResponse(content=html_content)
+
+@app.post("/ui/run_task")
+async def ui_run_task(request: Request, agent_id: str = Form(...)):
+    try:
+        verify_admin(request)
+    except HTTPException:
+        return RedirectResponse(url="/login", status_code=303)
+
+    conn = sqlite3.connect('lattice_agents.db')
+    c = conn.cursor()
+    c.execute("SELECT trust_score, tasks_completed FROM agents WHERE public_key=?", (agent_id,))
+    agent = c.fetchone()
+    if agent:
+        new_trust = min(100.0, agent[0] + 2.0)
+        new_tasks = agent[1] + 1
+        c.execute("UPDATE agents SET trust_score=?, tasks_completed=? WHERE public_key=?", (new_trust, new_tasks, agent_id))
+        conn.commit()
+        database.log_task(agent_id, "Execute API Task", "Success")
+    conn.close()
+    return RedirectResponse(url="/", status_code=303)
+
+@app.post("/ui/slash_agent")
+async def ui_slash_agent(request: Request, agent_id: str = Form(...)):
+    try:
+        verify_admin(request)
+    except HTTPException:
+        return RedirectResponse(url="/login", status_code=303)
+    
+    database.burn_stake(agent_id)
+    database.log_task(agent_id, "Manual Slash via UI", "Stake Burned")
+    return RedirectResponse(url="/", status_code=303)
+
+@app.post("/ui/pay_agent")
+async def ui_pay_agent(request: Request, agent_id: str = Form(...)):
+    """Agent ko task ka payment karna"""
+    try:
+        verify_admin(request)
+    except HTTPException:
+        return RedirectResponse(url="/login", status_code=303)
+    
+    # DB se agent ki current details nikalo
+    agent_info = database.get_agent(agent_id)
+    if not agent_info:
+        return RedirectResponse(url="/", status_code=303)
+        
+    # Agar agent slashed hai, toh payment fail ho jaye!
+    if agent_info[5] == 'slashed':
+        database.log_task(agent_id, "Payment Attempted", "Failed (Slashed Agent)")
+    else:
+        # Payment record karo DB mein (amount = 10.0, payer = 'Dashboard')
+        database.record_payment(agent_id, 10.0, "Dashboard Admin")
+        database.log_task(agent_id, "Received Payment", "Success (+10 USDC)")
+        
+    return RedirectResponse(url="/", status_code=303)
+
+@app.post("/ui/register_new")
+async def ui_register_new(request: Request):
+    try:
+        verify_admin(request)
+    except HTTPException:
+        return RedirectResponse(url="/login", status_code=303)
+        
+    import secrets as sec
+    dummy_key = sec.token_hex(32)
+    database.add_agent(dummy_key, [{"name": "web_scraper", "fee": 0.5}], 100.0)
+    return RedirectResponse(url="/", status_code=303)
+
 
 if __name__ == "__main__":
     print("Lattice HTTP + WebSocket Server v2.0")

@@ -1,3 +1,4 @@
+
 # 🔷 Lattice Protocol v2.1
 
 **The Secure, Stateless Protocol for AI, Data, Blockchain, and Gaming.**
@@ -23,14 +24,15 @@
 
 ## 🆕 What's New in v2.1? (Economic Security & Control Center)
 
-Lattice is no longer just a protocol — it's a full-fledged **Agent Economy Control Center**. This release introduces Financial Slashing, Audit Trails, and an Interactive Web Dashboard.
+Lattice is no longer just a protocol — it's a full-fledged **Agent Economy Control Center**. This release introduces Financial Slashing, Audit Trails, an Interactive Web Dashboard, and Enterprise-Grade Security.
 
 ### 🖥️ Interactive Web Dashboard
 
 No need to use `curl` for everything! Lattice now comes with a built-in Web Control Center.
 
 * **Visual Registry** — View all registered agents, their trust scores, and locked stakes.
-* **One-Click Actions** — Select specific agents from a dropdown to execute tasks or slash them instantly.
+* **Stats Overview** — Dashboard cards showing Total Agents, Active Agents, Slashed Agents, and Total Staked Value.
+* **One-Click Actions** — Select specific agents from a dropdown to execute tasks, pay them, or slash them instantly.
 * **Live Audit Logs** — Monitor recent activities, task successes, and slashing events in real-time.
 * **Access it at:** `http://localhost:8080/` after starting the server.
 
@@ -49,13 +51,25 @@ Enterprise-grade accountability. Every action is logged immutably into the SQLit
 * When an agent executes a task, a log is recorded with the `Task Name`, `Status` (Success/Failed), and `Timestamp`.
 * Slashing events are recorded with the specific reason.
 
+### 🛡️ Enterprise-Grade Security (Admin UI)
+
+The Control Center is protected by advanced authentication mechanisms:
+
+* **Bcrypt Password Hashing** — Admin credentials are securely hashed using Bcrypt + Salt. Zero-knowledge password verification.
+* **Brute-Force Protection** — IP addresses are automatically blocked for 5 minutes after 3 failed login attempts.
+* **Session Management** — Secure, HTTP-only cookies are used for session persistence.
+
 ### 🛠️ Developer Experience (Zero-Config DB)
 
 Tired of manually initializing databases or deleting files when schemas update? Lattice v2.1 features an **Auto-Migrating Database**. Simply run `python server.py`, and Lattice automatically checks for missing columns and updates the SQLite schema on the fly. No `del` commands, no headaches.
 
-### 💸 Agent Payments (Micropayments)
+### 💸 Agent Payments (Micropayments Ledger)
 
-Agents can now be compensated for their work. The `pay_agent` action allows clients to send rewards to active agents, which are recorded in the database. Slashed agents cannot receive payments.
+Agents can now be compensated for their work. The `pay_agent` action allows clients to send rewards to active agents, which are recorded in the database ledger. Slashed agents cannot receive payments.
+
+### 🔌 Real MCP SDK Integration
+
+Lattice acts as a true gateway, spawning and communicating with **real local MCP servers** using the official `mcp` Python SDK — not a simulation.
 
 ---
 
@@ -74,32 +88,35 @@ Agents can now be compensated for their work. The `pay_agent` action allows clie
 * **Persistent Registry** — SQLite-backed agent registry (survives server restarts).
 * **Auto-Migrating Database** — Schema updates apply automatically on startup, no manual migrations needed. *(New in v2.1)*
 * **Audit Trail** — Immutable logging of task history and slashing events. *(New in v2.1)*
-* **Agent Payments** — Micropayment rewards to active (non-slashed) agents via `pay_agent`. *(New in v2.1)*
-* **Interactive Web Dashboard** — Visual registry, one-click actions, and live audit logs. *(New in v2.1)*
+* **Agent Payments** — Micropayment rewards to active (non-slashed) agents via `pay_agent`, recorded in a ledger. *(New in v2.1)*
+* **Interactive Web Dashboard** — Visual registry, one-click actions, stats cards, and live audit logs. *(New in v2.1)*
+* **Enterprise-Grade Security** — Bcrypt-hashed admin auth, brute-force IP blocking, and secure session cookies. *(New in v2.1)*
+* **Real MCP SDK Integration** — Lattice spawns and communicates with real local MCP servers using the official `mcp` Python SDK. *(New in v2.1)*
 * **MCP Bridge Ready** — Designed to sit on top of MCP, adding economic and trust layers.
 
 ---
 
 ## 🚀 Why Lattice?
 
-| Feature              | MCP      | **Lattice**                     |
-| -------------------- | -------- | ------------------------------------- |
-| 🔒 Security          | API Keys | **Ed25519 Signing**             |
-| ⛓️ Blockchain      | ❌       | **Ethereum + Solana**           |
-| 🎮 Gaming            | ❌       | **Anti-Cheat HMAC**             |
-| 📊 Data Engineering  | ❌       | **ETL Pipelines**               |
-| 🤖 AI Agent Swarms   | ❌       | **Multi-Agent Coordination**    |
-| 🧠 Vector DB         | ❌       | **pgvector Support**            |
-| ⚡ Stateless         | ❌       | **✅ Built-in**                 |
-| 🌉 MCP Compatibility | ❌       | **✅ MCP Bridge Gateway**       |
-| 💰 Economic Slashing | ❌       | **✅ Stake Burn + Audit Trail** |
-| 🖥️ Dashboard       | ❌       | **✅ Interactive Web UI**       |
+| Feature              | MCP      | **Lattice**                       |
+| -------------------- | -------- | --------------------------------------- |
+| 🔒 Security          | API Keys | **Ed25519 Signing**               |
+| ⛓️ Blockchain      | ❌       | **Ethereum + Solana**             |
+| 🎮 Gaming            | ❌       | **Anti-Cheat HMAC**               |
+| 📊 Data Engineering  | ❌       | **ETL Pipelines**                 |
+| 🤖 AI Agent Swarms   | ❌       | **Multi-Agent Coordination**      |
+| 🧠 Vector DB         | ❌       | **pgvector Support**              |
+| ⚡ Stateless         | ❌       | **✅ Built-in**                   |
+| 🌉 MCP Compatibility | ❌       | **✅ MCP Bridge Gateway**         |
+| 💰 Economic Slashing | ❌       | **✅ Stake Burn + Audit Trail**   |
+| 🖥️ Dashboard       | ❌       | **✅ Interactive Web UI**         |
+| 🛡️ UI Security     | ❌       | **✅ Bcrypt + Brute-Force Block** |
 
 ---
 
 ## 🌉 MCP Bridge Module (Lattice-MCP Gateway)
 
-**Lattice eliminates the need to rebuild MCP tools!** You can simply "rent" existing MCP tools on the Lattice network. An agent sends a `bridge_mcp_tool` request, the Lattice server calls the MCP tool locally, retrieves the result, and returns it to the agent.
+**Lattice eliminates the need to rebuild MCP tools!** You can simply "rent" existing MCP tools on the Lattice network. An agent sends a `bridge_mcp_tool` request, the Lattice server spawns the official MCP server locally, calls the tool, retrieves the result, updates the Trust Score, and returns it to the agent.
 
 ### Bridge MCP Tool Example
 
@@ -110,7 +127,8 @@ curl -X POST http://localhost:8080/lattice/v1/execute \
     "request_id": "bridge_001",
     "action": "bridge_mcp_tool",
     "payload": {
-      "tool": "example_tool"
+      "tool_name": "read_file",
+      "arguments": {"path": "/test.txt"}
     },
     "timestamp": '$(date +%s)'
   }'

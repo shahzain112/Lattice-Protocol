@@ -57,6 +57,22 @@ def init_db():
     add_column_if_missing("agents", "tasks_completed", "INTEGER DEFAULT 0")
     add_column_if_missing("agents", "status", "TEXT DEFAULT 'active'")
     
+    # Admins Table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS admins (
+            username TEXT PRIMARY KEY,
+            password_hash TEXT
+        )
+    ''')
+    
+    # Direct bcrypt library use kar ke hash banana
+    import bcrypt
+    password_bytes = "lattice123".encode('utf-8')
+    salt = bcrypt.gensalt()
+    default_hash = bcrypt.hashpw(password_bytes, salt).decode('utf-8')
+    
+    cursor.execute("INSERT OR IGNORE INTO admins (username, password_hash) VALUES (?, ?)", ("admin", default_hash))
+    
     conn.commit()
     conn.close()
 
