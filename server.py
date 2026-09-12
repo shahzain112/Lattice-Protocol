@@ -7,6 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from main import handle_request
 import uvicorn
+import database
+# Server start hone par DB auto-initialize hogi!
+database.init_db()
 
 app = FastAPI(
     title="Lattice Protocol",
@@ -299,6 +302,164 @@ async def secure_endpoint(request: Request):
         "client": client_ip,
         "timestamp": int(time.time())
     }
+
+from fastapi.responses import HTMLResponse, RedirectResponse
+import sqlite3
+
+# --- Naye Endpoints for Dashboard Buttons ---
+
+@app.post("/ui/run_task")
+async def ui_run_task():
+    """Dashboard se button daba kar task execute karne ke liye"""
+    conn = sqlite3.connect('lattice_agents.db')
+    c = conn.cursor()
+    # Pehle agent ko uthao
+    c.execute("SELECT public_key, trust_score, tasks_completed FROM agents LIMIT 1")
+    agent = c.fetchone()
+    
+    if agent:
+        # Trust +2 aur Tasks +1 karo (Max 100)
+        new_trust = min(100.0, agent[1] + 2.0)
+        new_tasks = agent[2] + 1
+        c.execute("UPDATE agents SET trust_score=?, tasks_completed=? WHERE public_key=?", 
+                  (new_trust, new_tasks, agent[0]))
+        conn.commit()
+    conn.close()
+    # Dashboard par wapas bhejo
+    return RedirectResponse(url="/", status_code=303)
+
+@app.post("/ui/slash_agent")
+async def ui_slash_agent():
+    """Agent ko slash karne ke liye"""
+    conn = sqlite3.connect('lattice_agents.db')
+    c = conn.cursor()
+    c.execute("SELECT public_key FROM agents LIMIT 1")
+    agent = c.fetchone()
+    
+    if agent:
+        # Trust 0 aur Status 'slashed' kar do
+        c.execute("UPDATE agents SET trust_score=0.0, tasks_completed=0, status='slashed' WHERE public_key=?", 
+                  (agent[0],))
+        conn.commit()
+    conn.close()
+    return RedirectResponse(url="/", status_code=303)
+
+@app.post("/ui/register_new")
+async def ui_register_new():
+    """Dashboard se naya dummy agent register karne ke liye"""
+    import secrets
+    from main import register_agent
+    # Random public key generate karke register karo
+    dummy_key = secrets.token_hex(32)
+    register_agent([{"name": "web_scraper", "fee": 0.5}], stake=100.0)
+    return RedirectResponse(url="/", status_code=303)
+
+
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import Form
+import sqlite3
+import database
+
+@app.post("/ui/run_task")
+async def ui_run_task(agent_id: str = Form(...)):
+    conn = sqlite3.connect('lattice_agents.db')
+    c = conn.cursor()
+    c.execute("SELECT trust_score, tasks_completed FROM agents WHERE public_key=?", (agent_id,))
+    agent = c.fetchone()
+    if agent:
+        new_trust = min(100.0, agent[0] + 2.0)
+        new_tasks = agent[1] + 1
+        c.execute("UPDATE agents SET trust_score=?, tasks_completed=? WHERE public_key=?", 
+                  (new_trust, new_tasks, agent_id))
+        conn.commit()
+        database.log_task(agent_id, "Execute API Task", "Success")
+    conn.close()
+    return RedirectResponse(url="/", status_code=303)
+
+@app.post("/ui/slash_agent")
+async def ui_slash_agent(agent_id: str = Form(...)):
+    # Direct DB se stake burn kar do
+    database.burn_stake(agent_id)
+    database.log_task(agent_id, "Manual Slash via UI", "Stake Burned")
+    return RedirectResponse(url="/", status_code=303)
+
+@app.post("/ui/register_new")
+async def ui_register_new():
+    import secrets
+    from main import register_agent
+    dummy_key = secrets.token_hex(32)
+    # Yahan direct DB mein daal rahe hain taake stake properly set ho
+    database.add_agent(dummy_key, [{"name": "web_scraper", "fee": 0.5}], 100.0)
+    return RedirectResponse(url="/", status_code=303)
+
+@app.get("/", response_class=HTMLResponse)
+async def dashboard():
+    conn = sqlite3.connect('lattice_agents.db')
+    c = conn.cursor()
+    c.execute('SELECT public_key, trust_score, tasks_completed, status, stake FROM agents')
+    agents = c.fetchall()
+    conn.close()
+    
+    logs = database.get_logs(5)
+
+    html_content = f"""
+    <html>
+        <head>
+            <title>Lattice Protocol Dashboard</title>
+            <style>
+                body {{ font-family: Arial; background: #f4f4f9; padding: 20px; }}
+                h1, h2 {{ color: #333; }}
+                table {{ width: 100%; border-collapse: collapse; background: white; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }}
+                th, td {{ padding: 12px; border-bottom: 1px solid #ddd; text-align: left; }}
+                th {{ background-color: #4CAF50; color: white; }}
+                .btn {{ padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; margin-right: 10px; }}
+                .btn-success {{ background-color: #28a745; color: white; }}
+                .btn-danger {{ background-color: #dc3545; color: white; }}
+                .btn-primary {{ background-color: #007bff; color: white; }}
+                select {{ padding: 10px; font-size: 16px; border-radius: 5px; margin-right: 10px; }}
+            </style>
+        </head>
+        <body>
+            <h1>🛡️ Lattice Protocol - Control Center</h1>
+            
+            <h2>Agent Actions</h2>
+            <div style="display: flex; align-items: center; margin-bottom: 20px; flex-wrap: wrap;">
+                <form action="/ui/register_new" method="POST" style="display:inline;">
+                    <button type="submit" class="btn btn-primary">+ Register New Agent</button>
+                </form>
+                
+                <form action="/ui/run_task" method="POST" style="display:inline; display: flex; align-items: center; margin-top: 10px;">
+                    <select name="agent_id" required>
+                        <option value="" disabled selected>Select Agent for Task...</option>
+                        {"".join([f"<option value='{a[0]}'>{a[0][:15]}... (Trust: {a[1]})</option>" for a in agents if a[3] == 'active'])}
+                    </select>
+                    <button type="submit" class="btn btn-success">Execute Task</button>
+                </form>
+                
+                <form action="/ui/slash_agent" method="POST" style="display:inline; display: flex; align-items: center; margin-top: 10px;">
+                    <select name="agent_id" required>
+                        <option value="" disabled selected>Select Agent to Punish...</option>
+                        {"".join([f"<option value='{a[0]}'>{a[0][:15]}... (Trust: {a[1]})</option>" for a in agents])}
+                    </select>
+                    <button type="submit" class="btn btn-danger">Slash & Burn Stake</button>
+                </form>
+            </div>
+
+            <h2>Agents Registry</h2>
+            <table>
+                <tr><th>Agent Public Key</th><th>Trust Score</th><th>Tasks</th><th>Status</th><th>Stake Locked</th></tr>
+                {"".join([f"<tr><td>{a[0][:30]}...</td><td>{a[1]}</td><td>{a[2]}</td><td>{a[3]}</td><td>{a[4]}</td></tr>" for a in agents])}
+            </table>
+
+            <h2>📜 Audit Log (Recent Activity)</h2>
+            <table>
+                <tr><th>Agent Key</th><th>Task / Event</th><th>Status</th><th>Time</th></tr>
+                {"".join([f"<tr><td>{l[0][:20]}...</td><td>{l[1]}</td><td>{l[2]}</td><td>{l[3]}</td></tr>" for l in logs])}
+            </table>
+        </body>
+    </html>
+    """
+    return html_content
 
 if __name__ == "__main__":
     print("Lattice HTTP + WebSocket Server v2.0")

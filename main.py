@@ -105,7 +105,7 @@ def register_agent(sender_id: str, capabilities: list, stake: float = 0.0) -> di
     _lattice_trust.update_stake(agent.agent_id, stake)
 
     # This line has been added to save it in the DB.
-    database.add_agent(agent.agent_id, agent.public_key.hex(), [c.name for c in agent.capabilities], agent.trust_score, stake, "active")
+    database.add_agent(agent.agent_id, str([c.name for c in agent.capabilities]), stake, agent.trust_score, 0, "active")
 
     return {
         "agent_id": agent.agent_id,
@@ -618,26 +618,51 @@ def handle_request(raw_input: bytes, client_id: Optional[str] = None) -> str:
             )
 
     # ==================== MCP BRIDGE MODULE ====================
-    # Yeh feature Lattice ko MCP se zyada powerful banata hai
     elif req.action == "bridge_mcp_tool":
         try:
             tool_name = req.payload.get("tool_name")
             arguments = req.payload.get("arguments", {})
+            agent_id = req.payload.get("agent_id")
             
             if not tool_name or not isinstance(tool_name, str):
                 raise ValueError("tool_name string required")
             
-            mock_mcp_result = {
-                "status": "success",
-                "tool_executed": tool_name,
-                "input_args": arguments,
-                "output": f"MCP Tool '{tool_name}' executed successfully via Lattice Bridge!"
-            }
+            # --- REAL MCP BRIDGE LOGIC ---
+            # Here Lattice will call the actual Mcp Server
+            # For now, we are decoupling this from real API calls.
+            # So that an entry appears in your logs and there is proof that the tool was called..
+            
+            import requests as req_lib
+            task_result = {}
+            
+            # Suppose that MCP tool is"get_crypto_price"
+            if tool_name == "get_crypto_price":
+                api_res = req_lib.get("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT", timeout=5)
+                if api_res.status_code == 200:
+                    task_result = {"tool": tool_name, "price": api_res.json().get("price")}
+                    status_msg = "Success"
+                    
+                    # Agent ka trust score bhi badhao kyunki usne tool sahi chalaya
+                    if agent_id:
+                        agent_info = database.get_agent(agent_id)
+                        if agent_info:
+                            new_trust = min(100.0, agent_info[3] + 1.0)
+                            database.update_trust(agent_id, new_trust)
+                else:
+                    task_result = {"error": "MCP Tool API failed"}
+                    status_msg = "Failed"
+            else:
+                task_result = {"message": f"Tool {tool_name} not found in Lattice Bridge"}
+                status_msg = "Unknown Tool"
+            
+            # Audit Log mein daalo
+            if agent_id:
+                database.log_task(agent_id, f"MCP Tool: {tool_name}", status_msg)
             
             response = LatticeResponse(
                 request_id=req.request_id,
                 status="success",
-                data={"mcp_bridge_result": mock_mcp_result}
+                data={"mcp_bridge_result": task_result, "log_status": status_msg}
             )
         except Exception as e:
             response = LatticeResponse(
@@ -651,23 +676,41 @@ def handle_request(raw_input: bytes, client_id: Optional[str] = None) -> str:
     elif req.action == "execute_task":
         try:
             agent_id = req.payload.get("agent_id")
-            task_data = req.payload.get("task_data")
+            task_data = req.payload.get("task_data") or {}
             
-            # 1. Agent DB mein hai ya nahi check karo
+            # 1. Checking if Agent is in Db or not
             agent_info = database.get_agent(agent_id)
             if not agent_info:
                 raise ValueError("Agent not registered in Lattice")
                 
-            if agent_info[4] == 'slashed': # status check
+            if agent_info[5] == 'slashed': # status check
                 raise ValueError("Agent is slashed and cannot perform tasks")
-                
-            # 2. Agent task kar raha hai (Mock execution)
-            task_result = {"result": "Task completed successfully by " + agent_id}
             
-            # 3. Trust Score Badhao (Kyunki usne acha kaam kiya)
-            current_trust = agent_info[3] # trust_score from DB
-            new_trust = min(100.0, current_trust + 1.0) # Max 100
-            database.update_trust(agent_id, new_trust)
+            # --- New CODE: REAL API CALL (Like MCP Tool) ---
+            import requests as req_lib
+            
+            task_result = {}
+            new_trust = agent_info[3] # Current trust score
+            
+            # Maan lo agent ko Bitcoin ki price nikalni hai
+            if task_data.get("query") == "get_btc_price":
+                # Calling the public api of binance
+                api_response = req_lib.get("https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT", timeout=5)
+                
+                if api_response.status_code == 200:
+                    btc_price = api_response.json().get("price")
+                    task_result = {"tool": "crypto_api", "btc_price": btc_price}
+                    
+                    # 2. Increase Trust score (because Api is sccessfull)
+                    new_trust = min(100.0, agent_info[3] + 2.0) 
+                    database.update_trust(agent_id, new_trust)
+                else:
+                    # if Api fails decrease trust score
+                    task_result = {"error": "External API failed"}
+                    new_trust = max(0.0, agent_info[3] - 5.0)
+                    database.update_trust(agent_id, new_trust)
+            else:
+                task_result = {"result": "Unknown query, no action taken"}
             
             response = LatticeResponse(
                 request_id=req.request_id,
@@ -731,19 +774,21 @@ def handle_request(raw_input: bytes, client_id: Optional[str] = None) -> str:
     # ==================== New LOGIC: SLASH_AGENT ====================
 
     elif req.action == "slash_agent":
-        # This is a new feature! If the agent makes a mistake, set the trust level to zero.
+        # Yeh NOV feature hai! Agar agent ne galat kiya, to trust zero karo
         try:
             agent_id = req.payload.get("agent_id")
             reason = req.payload.get("reason", "Bad behavior")
             
-            database.update_trust(agent_id, 0.0)
-            # Mark the status as 'slashed' so that the task cannot be performed.
-            database.update_status(agent_id, "slashed")
+            # Yahan Financial Slashing hogi (Stake = 0)
+            database.burn_stake(agent_id)
+            
+            # Audit log mein entry karo
+            database.log_task(agent_id, f"Slashed: {reason}", "Stake Burned")
             
             response = LatticeResponse(
                 request_id=req.request_id,
                 status="success",
-                data={"message": f"Agent {agent_id} slashed. Reason: {reason}"}
+                data={"message": f"Agent {agent_id} slashed. Stake burned (0.0). Reason: {reason}"}
             )
         except Exception as e:
             response = LatticeResponse(

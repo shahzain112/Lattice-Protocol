@@ -340,8 +340,8 @@ def test_register_agent():
                 {
                     "name": "web_search", 
                     "description": "Searches the web", 
-                    "input_schema": {"query": "string"},   # --- YEH LINE MISSING THI ---
-                    "output_schema": {"results": "list"},  # --- YEH LINE MISSING THI ---
+                    "input_schema": {"query": "string"},   
+                    "output_schema": {"results": "list"},  
                     "fee": 0.1
                 }
             ],
@@ -358,17 +358,17 @@ def test_register_agent():
         else:
             print("Agent Registration: FAILED")
 
-# 12. Test: Execute Task (Agent task karega aur trust score badhega)
+# 12. Test: Execute Task (Agent will perform the task ad trust score will increase)
 def test_execute_task():
     print("\nTesting: execute_task")
-    # Yeh agent_id test_register_agent se aayega, hum hardcoded use kar rahe hain test ke liye
-    # Dhyan raho: yeh public key test_lattice.py ke _test_public_key_hex se match honi chahiye
+    # This agent_id will come from test_register_agent; we are using a hardcoded value for testing purposes.
+    # Note: This must match `_test_public_k_hex` from `public/test_lattice.py`.
     payload = {
         "request_id": "test_task_001",
         "action": "execute_task",
         "payload": {
-            "agent_id": _test_public_key_hex, # Same key jo sign kar rahi hai
-            "task_data": {"query": "Fetch weather for Karachi"}
+            "agent_id": _test_public_key_hex, # Same key which is use for signing
+            "task_data": {"query": "get_btc_price"}
         },
         "timestamp": int(time.time())
     }
@@ -380,7 +380,7 @@ def test_execute_task():
         else:
             print("Execute Task: FAILED")
 
-# 13. Test: Slash Agent (Agent ko punish karna)
+# 13. Test: Slash Agent (Punishing Agnet)
 def test_slash_agent():
     print("\nTesting: slash_agent")
     payload = {
