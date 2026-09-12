@@ -1,4 +1,3 @@
-
 # 🔷 Lattice Protocol v2.1
 
 **The Secure, Stateless Protocol for AI, Data, Blockchain, and Gaming.**
@@ -236,4 +235,4 @@ docker run -p 8080:8080 lattice-protocol
 
 Let's build the future of autonomous AI agents. MCP connects AI to Tools. Lattice connects AI to AI Economy.
 
-**[GitHub](https://github.com/shahzain112/Lattice-Protocol)** | **[Documentation](https://github.com/shahzain112/Lattice-Protocol/wiki)**
+**[GitHub](https://github.com/shahzain112/Lattice-Protocol)** | **[Documentation](<**[GitHub](https://github.com/shahzain112/Lattice-Protocol)** | **[Documentation](DOCUMENTATION.md)****[GitHub](https://github.com/shahzain112/Lattice-Protocol)** | **[Documentation](DOCUMENTATION.md)**>)**
