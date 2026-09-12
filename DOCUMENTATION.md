@@ -25,7 +25,7 @@ Lattice operates as a centralized routing and trust-evaluation engine built on *
 | **Database Layer** | Uses SQLite with auto-migration for zero-config setup; logs all activity for audit trails                      |
 | **UI Layer**       | A secure, cookie-authenticated HTML dashboard for administrative control                                       |
 
-![Lattice Protocol Core Architecture](architecture.png)
+![Lattice](architecture.png)
 
 ---
 
@@ -40,7 +40,7 @@ Every request sent to the `/lattice/v1/execute` endpoint must be signed.
 3. The server verifies the signature using the `sender_id` (public key) provided in the payload.
 4. Requests with invalid signatures or timestamps older than **60 seconds** are rejected (anti-replay protection).
 
-![Ed25519 Signature Verification Flow](signature_flow.png)
+![Lattice](signature_flow.png)
 
 ### B. Dashboard Security (Bcrypt + Brute-Force Protection)
 
@@ -74,7 +74,7 @@ If an agent is flagged for malicious behavior or continuous failures, the `slash
 3. The agent's `status` is set to `slashed`.
 4. Slashed agents can no longer execute tasks or receive payments.
 
-![Slashing Mechanism Flow](slashing_flow.png)
+![Lattice](slashing_flow.png)
 
 ### Payment Ledger
 
@@ -92,7 +92,7 @@ Lattice implements the official `mcp` Python SDK to bridge existing Model Contex
 4. The requested tool is called with the provided arguments.
 5. The result is retrieved, the agent's trust score is incremented, and the result is returned to the agent.
 
-![Real MCP Bridge Integration Flow](mcp_bridge_flow.png)
+![Lattice](mcp_bridge_flow.png)
 
 ---
 
