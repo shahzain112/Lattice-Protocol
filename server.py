@@ -490,7 +490,7 @@ async def dashboard(request: Request):
                         <option value="" disabled selected>Select Agent to Pay...</option>
                         {"".join([f"<option value='{a[0]}'>{a[0][:15]}... (Trust: {a[1]})</option>" for a in agents])}
                     </select>
-                    <button type="submit" class="btn" style="background-color: #ffc107; color: black;">Pay 10 USDC</button>
+                    <button type="submit" class="btn" style="background-color: #ffc107; color: black;">Log Agent Payment</button>
                 </form>
             </div>
 
