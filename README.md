@@ -1,5 +1,7 @@
 # 🔷 Lattice Protocol v2.1
 
+[![M8ven Score](<https://img.shields.io/badge/M8ven%20Score-View-blue>)](https://m8ven.com)
+
 **The Secure, Stateless Protocol for AI, Data, Blockchain, and Gaming.**
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/) [![FastAPI](https://img.shields.io/badge/FastAPI-0.115.6-009688.svg)](https://fastapi.tiangolo.com) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -29,34 +31,34 @@ Lattice is no longer just a protocol — it's a full-fledged **Agent Economy Con
 
 No need to use `curl` for everything! Lattice now comes with a built-in Web Control Center.
 
-* **Visual Registry** — View all registered agents, their trust scores, and locked stakes.
-* **Stats Overview** — Dashboard cards showing Total Agents, Active Agents, Slashed Agents, and Total Staked Value.
-* **One-Click Actions** — Select specific agents from a dropdown to execute tasks, pay them, or slash them instantly.
-* **Live Audit Logs** — Monitor recent activities, task successes, and slashing events in real-time.
-* **Access it at:** `http://localhost:8080/` after starting the server.
+- **Visual Registry** — View all registered agents, their trust scores, and locked stakes.
+- **Stats Overview** — Dashboard cards showing Total Agents, Active Agents, Slashed Agents, and Total Staked Value.
+- **One-Click Actions** — Select specific agents from a dropdown to execute tasks, pay them, or slash them instantly.
+- **Live Audit Logs** — Monitor recent activities, task successes, and slashing events in real-time.
+- **Access it at:** `http://localhost:8080/` after starting the server.
 
 ### 🔥 Financial Slashing (Stake Burn)
 
 Trust scores are no longer the only penalty. If an agent provides malicious data or fails a task, Lattice enforces Economic Slashing:
 
-* The agent's Trust Score drops to `0.0`.
-* The agent's locked Stake is burned to `0.0`.
-* The agent's status is permanently updated to `slashed`, preventing future task execution.
+- The agent's Trust Score drops to `0.0`.
+- The agent's locked Stake is burned to `0.0`.
+- The agent's status is permanently updated to `slashed`, preventing future task execution.
 
 ### 📜 Audit Trail & Task History
 
 Enterprise-grade accountability. Every action is logged immutably into the SQLite database.
 
-* When an agent executes a task, a log is recorded with the `Task Name`, `Status` (Success/Failed), and `Timestamp`.
-* Slashing events are recorded with the specific reason.
+- When an agent executes a task, a log is recorded with the `Task Name`, `Status` (Success/Failed), and `Timestamp`.
+- Slashing events are recorded with the specific reason.
 
 ### 🛡️ Enterprise-Grade Security (Admin UI)
 
 The Control Center is protected by advanced authentication mechanisms:
 
-* **Bcrypt Password Hashing** — Admin credentials are securely hashed using Bcrypt + Salt. Zero-knowledge password verification.
-* **Brute-Force Protection** — IP addresses are automatically blocked for 5 minutes after 3 failed login attempts.
-* **Session Management** — Secure, HTTP-only cookies are used for session persistence.
+- **Bcrypt Password Hashing** — Admin credentials are securely hashed using Bcrypt + Salt. Zero-knowledge password verification.
+- **Brute-Force Protection** — IP addresses are automatically blocked for 5 minutes after 3 failed login attempts.
+- **Session Management** — Secure, HTTP-only cookies are used for session persistence.
 
 ### 🛠️ Developer Experience (Zero-Config DB)
 
@@ -80,18 +82,18 @@ Lattice acts as a true gateway, spawning and communicating with **real local MCP
 
 ## 🚀 Features
 
-* **Ed25519 Cryptographic Identity** — Every agent signs requests. No more IP-based tracking.
-* **Trust Scoring Engine** — Agents build reputation by successfully completing tasks.
-* **Slashing Mechanism** — Malicious agents are penalized, and their trust score is dropped to zero.
-* **Financial Slashing** — Malicious/failing agents also have their locked stake burned to `0.0` and are permanently marked `slashed`. *(New in v2.1)*
-* **Persistent Registry** — SQLite-backed agent registry (survives server restarts).
-* **Auto-Migrating Database** — Schema updates apply automatically on startup, no manual migrations needed. *(New in v2.1)*
-* **Audit Trail** — Immutable logging of task history and slashing events. *(New in v2.1)*
-* **Agent Payments** — Micropayment rewards to active (non-slashed) agents via `pay_agent`, recorded in a ledger. *(New in v2.1)*
-* **Interactive Web Dashboard** — Visual registry, one-click actions, stats cards, and live audit logs. *(New in v2.1)*
-* **Enterprise-Grade Security** — Bcrypt-hashed admin auth, brute-force IP blocking, and secure session cookies. *(New in v2.1)*
-* **Real MCP SDK Integration** — Lattice spawns and communicates with real local MCP servers using the official `mcp` Python SDK. *(New in v2.1)*
-* **MCP Bridge Ready** — Designed to sit on top of MCP, adding economic and trust layers.
+- **Ed25519 Cryptographic Identity** — Every agent signs requests. No more IP-based tracking.
+- **Trust Scoring Engine** — Agents build reputation by successfully completing tasks.
+- **Slashing Mechanism** — Malicious agents are penalized, and their trust score is dropped to zero.
+- **Financial Slashing** — Malicious/failing agents also have their locked stake burned to `0.0` and are permanently marked `slashed`. *(New in v2.1)*
+- **Persistent Registry** — SQLite-backed agent registry (survives server restarts).
+- **Auto-Migrating Database** — Schema updates apply automatically on startup, no manual migrations needed. *(New in v2.1)*
+- **Audit Trail** — Immutable logging of task history and slashing events. *(New in v2.1)*
+- **Agent Payments** — Micropayment rewards to active (non-slashed) agents via `pay_agent`, recorded in a ledger. *(New in v2.1)*
+- **Interactive Web Dashboard** — Visual registry, one-click actions, stats cards, and live audit logs. *(New in v2.1)*
+- **Enterprise-Grade Security** — Bcrypt-hashed admin auth, brute-force IP blocking, and secure session cookies. *(New in v2.1)*
+- **Real MCP SDK Integration** — Lattice spawns and communicates with real local MCP servers using the official `mcp` Python SDK. *(New in v2.1)*
+- **MCP Bridge Ready** — Designed to sit on top of MCP, adding economic and trust layers.
 
 ---
 
