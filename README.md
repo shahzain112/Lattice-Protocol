@@ -1,6 +1,7 @@
+
 # 🔷 Lattice Protocol v2.1
 
-[![M8ven Score](<[![M8ven Score](https://m8ven.ai/badge/mcp/shahzain112-lattice-protocol-1pa48s)](https://m8ven.ai/mcp/shahzain112-lattice-protocol-1pa48s)>)](https://m8ven.com)
+[![M8ven Score](https://m8ven.ai/badge/mcp/shahzain112-lattice-protocol-1pa48s)](https://m8ven.ai/mcp/shahzain112-lattice-protocol-1pa48s)
 
 **The Secure, Stateless Protocol for AI, Data, Blockchain, and Gaming.**
 
